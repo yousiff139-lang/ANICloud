@@ -1,0 +1,1 @@
+import { ANIME } from '@consumet/extensions'; async function run() { const p = new ANIME.AnimePahe(); const s = await p.search('Jujutsu Kaisen'); console.log(JSON.stringify(s.results.map(r => ({title: r.title, id: r.id})), null, 2)); }; run();

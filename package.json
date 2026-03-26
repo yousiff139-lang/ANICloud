@@ -1,0 +1,47 @@
+{
+  "name": "anicloud",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@consumet/extensions": "^1.8.8",
+    "@prisma/adapter-better-sqlite3": "^7.5.0",
+    "@prisma/client": "^7.5.0",
+    "@radix-ui/react-icons": "latest",
+    "@tailwindcss/postcss": "^4.2.2",
+    "axios": "latest",
+    "bcrypt": "^6.0.0",
+    "better-sqlite3": "^12.8.0",
+    "clsx": "latest",
+    "framer-motion": "latest",
+    "got-scraping": "^4.2.1",
+    "hls.js": "latest",
+    "lucide-react": "latest",
+    "next": "latest",
+    "next-auth": "^4.24.13",
+    "prisma": "^7.5.0",
+    "react": "latest",
+    "react-dom": "latest",
+    "socket.io": "^4.8.3",
+    "socket.io-client": "^4.8.3",
+    "tailwind-merge": "latest"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "autoprefixer": "latest",
+    "eslint": "latest",
+    "eslint-config-next": "latest",
+    "postcss": "latest",
+    "tailwindcss": "^4.2.2",
+    "typescript": "latest"
+  }
+}

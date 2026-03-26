@@ -1,0 +1,240 @@
+/* Accessibility Styles for ANICloud */
+
+/* High Contrast Mode */
+.high-contrast {
+  --bg-primary: #000000;
+  --bg-secondary: #1a1a1a;
+  --text-primary: #ffffff;
+  --text-secondary: #e0e0e0;
+  --border-color: #ffffff;
+  --accent-color: #00ffff;
+}
+
+.high-contrast * {
+  border-color: var(--border-color) !important;
+}
+
+.high-contrast .glass {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border: 2px solid var(--border-color) !important;
+}
+
+.high-contrast button,
+.high-contrast a {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+}
+
+.high-contrast button:focus,
+.high-contrast a:focus {
+  outline: 3px solid var(--accent-color);
+  outline-offset: 3px;
+}
+
+/* Reduced Motion */
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* Focus Visible Styles */
+*:focus-visible {
+  outline: 3px solid #B026FF;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 3px solid #B026FF;
+  outline-offset: 2px;
+}
+
+/* Skip to Content Link */
+.skip-to-content {
+  position: absolute;
+  top: -100px;
+  left: 0;
+  background: #B026FF;
+  color: white;
+  padding: 12px 24px;
+  text-decoration: none;
+  font-weight: bold;
+  z-index: 9999;
+  border-radius: 0 0 8px 0;
+}
+
+.skip-to-content:focus {
+  top: 0;
+}
+
+/* Screen Reader Only */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Screen Reader Mode Enhancements */
+[data-screen-reader="true"] img {
+  border: 2px solid #B026FF;
+}
+
+[data-screen-reader="true"] button,
+[data-screen-reader="true"] a {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+/* Keyboard Navigation Indicators */
+.keyboard-nav-active *:focus {
+  outline: 3px solid #B026FF !important;
+  outline-offset: 3px !important;
+}
+
+/* ARIA Live Regions */
+[aria-live="polite"],
+[aria-live="assertive"] {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+/* Accessible Form Elements */
+input[type="checkbox"]:focus,
+input[type="radio"]:focus {
+  outline: 3px solid #B026FF;
+  outline-offset: 2px;
+}
+
+/* Accessible Video Controls */
+video:focus {
+  outline: 3px solid #B026FF;
+  outline-offset: 4px;
+}
+
+/* Accessible Tooltips */
+[role="tooltip"] {
+  background: #000;
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  z-index: 9999;
+}
+
+/* Accessible Modals */
+[role="dialog"] {
+  position: fixed;
+  z-index: 9999;
+}
+
+[role="dialog"]:focus {
+  outline: none;
+}
+
+/* Accessible Tables */
+table {
+  border-collapse: collapse;
+}
+
+th {
+  text-align: left;
+  font-weight: bold;
+}
+
+/* Accessible Lists */
+[role="list"] {
+  list-style: none;
+  padding: 0;
+}
+
+/* Color Blind Friendly */
+.colorblind-mode {
+  filter: grayscale(0.3);
+}
+
+/* Large Text Mode */
+.large-text {
+  font-size: 1.25em !important;
+  line-height: 1.6 !important;
+}
+
+.large-text h1 {
+  font-size: 3em !important;
+}
+
+.large-text h2 {
+  font-size: 2.5em !important;
+}
+
+.large-text h3 {
+  font-size: 2em !important;
+}
+
+/* Dyslexia Friendly Font */
+.dyslexia-font * {
+  font-family: 'OpenDyslexic', 'Comic Sans MS', sans-serif !important;
+}
+
+/* Print Styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  * {
+    background: white !important;
+    color: black !important;
+  }
+}
+
+/* Prefers Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Prefers Contrast */
+@media (prefers-contrast: high) {
+  * {
+    border-width: 2px !important;
+  }
+  
+  button,
+  a {
+    text-decoration: underline;
+  }
+}
+
+/* Prefers Color Scheme */
+@media (prefers-color-scheme: dark) {
+  /* Already dark by default */
+}
+
+/* Focus Within */
+*:focus-within {
+  outline: 2px solid rgba(176, 38, 255, 0.3);
+  outline-offset: 2px;
+}

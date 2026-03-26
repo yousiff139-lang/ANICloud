@@ -1,0 +1,124 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: #050609; /* Deeper black for better contrast */
+  --color-foreground: #F8FAFC;
+  --color-neon-cyan: #00F2FF;
+  --color-pulsing-violet: #8B5CF6;
+  
+  --font-inter: var(--font-inter);
+  --font-outfit: var(--font-outfit);
+}
+
+@layer base {
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-inter), sans-serif;
+    overflow-x: hidden;
+    position: relative;
+    min-height: 100vh;
+  }
+
+  /* Animated Mesh Background */
+  body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    background: 
+      radial-gradient(circle at 20% 30%, rgba(0, 242, 255, 0.08) 0%, transparent 40%),
+      radial-gradient(circle at 80% 70%, rgba(139, 92, 246, 0.08) 0%, transparent 40%),
+      radial-gradient(circle at 50% 50%, rgba(5, 6, 9, 1) 0%, rgba(5, 6, 9, 1) 100%);
+    background-attachment: fixed;
+  }
+
+  body::after {
+    content: "";
+    position: fixed;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    z-index: -1;
+    background-image: 
+      radial-gradient(circle at 50% 50%, rgba(0, 242, 255, 0.03) 0%, transparent 20%),
+      radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.03) 0%, transparent 20%);
+    animation: backgroundMove 30s linear infinite;
+    pointer-events: none;
+  }
+}
+
+@keyframes backgroundMove {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@layer components {
+  .glass {
+    background: rgba(15, 17, 26, 0.6);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 
+      0 4px 6px -1px rgba(0, 0, 0, 0.1),
+      0 2px 4px -1px rgba(0, 0, 0, 0.06),
+      inset 0 0 20px rgba(255, 255, 255, 0.01);
+  }
+
+  .glass-card {
+    background: rgba(15, 17, 26, 0.6);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 
+      0 4px 6px -1px rgba(0, 0, 0, 0.1),
+      0 2px 4px -1px rgba(0, 0, 0, 0.06),
+      inset 0 0 20px rgba(255, 255, 255, 0.01);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .glass-card:hover {
+    background: rgba(25, 27, 36, 0.7);
+    border-color: rgba(0, 242, 255, 0.2);
+    transform: translateY(-4px);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  }
+
+  .neon-border {
+    border: 1px solid rgba(0, 242, 255, 0.3);
+    box-shadow: 0 0 15px rgba(0, 242, 255, 0.1);
+  }
+
+  .neon-text {
+    text-shadow: 0 0 10px rgba(0, 242, 255, 0.5);
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}

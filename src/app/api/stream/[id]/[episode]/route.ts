@@ -1,0 +1,163 @@
+import { NextResponse } from 'next/server';
+import { ANIME } from '@consumet/extensions';
+
+export const dynamic = 'force-dynamic';
+
+// Simple in-memory cache to prevent redundant searches and waterfalls
+// In a serverless env (Vercel), this persists across hot lambda invocations.
+// In a long-running server (Railway/Docker), this lasts until restart.
+const STREAM_CACHE = new Map<string, { data: any, timestamp: number }>();
+const PROVIDER_ID_CACHE = new Map<string, string>(); // title -> providerId
+const CACHE_TTL = 1000 * 60 * 60 * 2; // 2 hours
+
+export async function GET(
+  request: Request,
+  context: any
+) {
+  const params = await context.params;
+  const { id, episode } = params;
+  
+  const { searchParams } = new URL(request.url);
+  const title = searchParams.get('title') || 'Anime';
+  const titleEn = searchParams.get('titleEn');
+
+  const cacheKey = `${id}-${episode}`;
+  const now = Date.now();
+
+  // Check cache first
+  const cached = STREAM_CACHE.get(cacheKey);
+  if (cached && (now - cached.timestamp < CACHE_TTL)) {
+    console.log(`🚀 Cache Hit: MAL_ID=${id}, EP=${episode}`);
+    return NextResponse.json(cached.data);
+  }
+
+  console.log(`📡 Stream Request: MAL_ID=${id}, EP=${episode}, Title=${title}, TitleEn=${titleEn}`);
+
+  if (!id || id === 'undefined' || !episode || episode === 'undefined') {
+    return NextResponse.json({ error: 'Missing ID or Episode' }, { status: 400 });
+  }
+
+  try {
+    const epNum = parseInt(episode);
+    const pahe = new ANIME.AnimePahe();
+    
+    let animeId = PROVIDER_ID_CACHE.get(title) || (titleEn ? PROVIDER_ID_CACHE.get(titleEn) : undefined);
+    let animeInfo: any = null;
+
+    if (!animeId) {
+      let searchResults: any = { results: [] };
+      let usedTitle = '';
+
+      if (titleEn && titleEn !== 'undefined') {
+        usedTitle = titleEn.replace(/\(TV\)/g, '').replace(/Part \d+/ig, '').trim();
+        console.log(`🎬 Searching AnimePahe (PRIMARY_EN) for "${usedTitle}"...`);
+        searchResults = await pahe.search(usedTitle);
+      }
+
+      if (!searchResults.results || searchResults.results.length === 0) {
+        usedTitle = title.replace(/\(TV\)/g, '').replace(/Part \d+/ig, '').trim();
+        console.log(`🎬 Searching AnimePahe (FALLBACK_ROMAJI) for "${usedTitle}"...`);
+        searchResults = await pahe.search(usedTitle);
+      }
+
+      if (searchResults.results && searchResults.results.length > 0) {
+        let bestMatch = searchResults.results[0];
+        const targetLower = usedTitle.toLowerCase();
+        
+        for (const res of searchResults.results) {
+          if (!res.title) continue;
+          const resTitle = res.title.toLowerCase();
+          if (resTitle === targetLower || resTitle.replace(/[^a-z0-9]/g, '') === targetLower.replace(/[^a-z0-9]/g, '')) {
+            bestMatch = res;
+            break;
+          }
+        }
+        animeId = bestMatch.id;
+        if (animeId) {
+          PROVIDER_ID_CACHE.set(title, animeId);
+          if (titleEn) PROVIDER_ID_CACHE.set(titleEn, animeId);
+        }
+      }
+    }
+
+    if (animeId) {
+      console.log(`🎬 Target: ID: ${animeId}`);
+      animeInfo = await pahe.fetchAnimeInfo(animeId);
+
+      let targetEp = animeInfo?.episodes?.find((e: any) => e.number === epNum);
+      
+      if (!targetEp && animeInfo?.episodes && animeInfo.episodes.length >= epNum) {
+        targetEp = animeInfo.episodes[epNum - 1]; 
+        console.log(`⚠️ Absolute episode number mismatch. Falling back to relative index: AnimePahe Ep ${targetEp.number}`);
+      }
+
+      if (targetEp) {
+        console.log(`🎬 Fetching sources for ${targetEp.id}...`);
+        const sourcesData = await pahe.fetchEpisodeSources(targetEp.id);
+        
+        if (sourcesData.sources && sourcesData.sources.length > 0) {
+          let masterUrl = '';
+          const resolutions: Record<string, string> = {};
+
+          for (const src of sourcesData.sources) {
+            let quality = src.quality || 'default';
+            
+            if (quality.includes('1080p')) quality = '1080p';
+            else if (quality.includes('720p')) quality = '720p';
+            else if (quality.includes('480p')) quality = '480p';
+            else if (quality.includes('360p')) quality = '360p';
+
+            resolutions[quality] = src.url;
+            masterUrl = src.url;
+          }
+
+          if (!masterUrl) masterUrl = resolutions['1080p'] || resolutions['720p'] || sourcesData.sources[0].url;
+          if (!resolutions['1080p']) resolutions['1080p'] = masterUrl;
+          if (!resolutions['720p']) resolutions['720p'] = masterUrl;
+          if (!resolutions['480p']) resolutions['480p'] = masterUrl;
+
+          const forceMp4 = (u: string) => {
+            if (u.includes('.m3u8') && u.includes('/stream/')) {
+              return u.replace('/stream/', '/mp4/').replace(/\/uwu\.m3u8.*/, '');
+            }
+            return u;
+          };
+
+          masterUrl = forceMp4(masterUrl);
+          for (const key in resolutions) {
+            resolutions[key] = forceMp4(resolutions[key]);
+          }
+
+          console.log(`✅ Success! Extracted AnimePahe Stream: ${masterUrl.substring(0, 60)}...`);
+
+          const result = {
+            master: masterUrl,
+            resolutions,
+            type: 'mp4', 
+            referer: "https://kwik.cx/",
+            episodes: animeInfo.episodes,
+            subtitles: sourcesData.subtitles || [],
+          };
+
+          // Cache the final result
+          STREAM_CACHE.set(cacheKey, { data: result, timestamp: now });
+
+          return NextResponse.json(result);
+        }
+      }
+    }
+    
+    console.warn(`⚠️ No anime found on AnimePahe`);
+    return NextResponse.json({ error: 'Anime not found' }, { status: 404 });
+
+  } catch (error) {
+    console.error('❌ Stream extraction failed completely:', error);
+    
+    const fallback = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8";
+    return NextResponse.json({
+      master: fallback,
+      resolutions: { "1080p": fallback, "720p": fallback, "480p": fallback },
+      type: "hls"
+    });
+  }
+}
