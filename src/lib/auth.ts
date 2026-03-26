@@ -134,14 +134,13 @@ export const authOptions: NextAuthOptions = {
           token.id = user.id;
           token.name = user.name;
           
-          // Fetch subscription and profile on initial sign in
+          // Fetch profile on initial sign in
           try {
             const userWithProfile = await prisma.user.findUnique({
               where: { id: user.id },
-              include: { 
-                profile: true
-              }
+              include: { profile: true }
             });
+            console.log('[Auth] JWT Initial DB Sync:', { id: user.id, found: !!userWithProfile });
             token.plan = "ultimate";
             token.picture = userWithProfile?.profile?.avatar ? `/api/profile/avatar?v=${Date.now()}` : null;
             if (userWithProfile?.name) token.name = userWithProfile.name;
@@ -178,7 +177,11 @@ export const authOptions: NextAuthOptions = {
     async signIn({ user, account }) {
       try {
         const userEmail = user.email;
-        if (!userEmail) return false;
+        console.log('[Auth] SignIn Callback:', { email: userEmail, provider: account?.provider });
+        if (!userEmail) {
+          console.error('[Auth] SignIn Failed: Missing Email');
+          return false;
+        }
 
         if (account?.provider === "google") {
           const existingUser = await prisma.user.findUnique({
@@ -220,8 +223,8 @@ export const authOptions: NextAuthOptions = {
         
         return true;
       } catch (error) {
-        console.error('[Auth] SignIn Error:', error);
-        return true;
+        console.error('[Auth] SignIn Error CRITICAL:', error);
+        return false; // Return false on error to prevent broken sessions
       }
     }
   },

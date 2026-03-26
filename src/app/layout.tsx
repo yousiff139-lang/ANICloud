@@ -10,6 +10,9 @@ const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" });
 export const metadata: Metadata = {
   title: "ANICloud | The Next-Gen Anime Aggregator",
   description: "Modern, high-performance anime streaming platform with automated content ingestion.",
+  other: {
+    'admaven-placement': 'BqjsHpjCE'
+  }
 };
 
 export default function RootLayout({
