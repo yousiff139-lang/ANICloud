@@ -51,23 +51,23 @@ export async function GET(req: NextRequest) {
 
     // Filter data by date range
     const filteredHistory = user.watchHistory.filter(
-      h => new Date(h.watchedAt) >= startDate
+      (h: any) => new Date(h.watchedAt) >= startDate
     );
 
     // Calculate total watched
     const completedAnime = new Set(
-      filteredHistory.filter(h => h.completed).map(h => h.animeId)
+      filteredHistory.filter((h: any) => h.completed).map((h: any) => h.animeId)
     );
     const totalWatched = completedAnime.size;
 
     // Calculate total hours
-    const totalSeconds = filteredHistory.reduce((sum, h) => sum + h.duration, 0);
+    const totalSeconds = filteredHistory.reduce((sum: number, h: any) => sum + h.duration, 0);
     const totalHours = totalSeconds / 3600;
 
     // Calculate average rating
-    const ratings = user.reviews.map(r => r.rating);
+    const ratings = user.reviews.map((r: any) => r.rating);
     const averageRating = ratings.length > 0
-      ? ratings.reduce((sum, r) => sum + r, 0) / ratings.length
+      ? ratings.reduce((sum: number, r: number) => sum + r, 0) / ratings.length
       : 0;
 
     // Favorite genres (mock data - would need genre info from anime API)
@@ -90,7 +90,7 @@ export async function GET(req: NextRequest) {
       'Sunday': 0
     };
 
-    filteredHistory.forEach(h => {
+    filteredHistory.forEach((h: any) => {
       const day = new Date(h.watchedAt).toLocaleDateString('en-US', { weekday: 'long' });
       dayPatterns[day] += h.duration / 3600;
     });
@@ -102,9 +102,9 @@ export async function GET(req: NextRequest) {
 
     // Top rated anime
     const topRatedAnime = user.reviews
-      .sort((a, b) => b.rating - a.rating)
+      .sort((a: any, b: any) => b.rating - a.rating)
       .slice(0, 6)
-      .map(r => ({
+      .map((r: any) => ({
         animeId: r.animeId,
         title: `Anime ${r.animeId}`, // Would fetch actual title
         rating: r.rating
