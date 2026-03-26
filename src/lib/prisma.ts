@@ -4,16 +4,25 @@ import path from "path";
 
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
-// Absolute path to avoid resolution issues
-const dbPath = path.resolve(process.cwd(), "prisma/dev.db").replace(/\\/g, "/");
+let prisma: PrismaClient;
 
-const adapter = new PrismaBetterSqlite3({ url: dbPath });
+try {
+  const dbPath = path.resolve(process.cwd(), "prisma/dev.db").replace(/\\/g, "/");
+  console.log('[Prisma] Initializing database at:', dbPath);
+  
+  const adapter = new PrismaBetterSqlite3({ url: dbPath });
+  
+  prisma = globalForPrisma.prisma ||
+    new PrismaClient({
+      adapter,
+      log: ["error", "warn"],
+    });
+} catch (error) {
+  console.error('[Prisma] Critical Initialization Error:', error);
+  // Fallback to standard client (might fail if missing URL, but better than a total crash)
+  prisma = globalForPrisma.prisma || new PrismaClient();
+}
 
-export const prisma =
-  globalForPrisma.prisma ||
-  new PrismaClient({
-    adapter,
-    log: ["error", "warn"],
-  });
+export { prisma };
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;

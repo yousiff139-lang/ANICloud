@@ -188,7 +188,21 @@ export default function LoginPage() {
                   <button
                     type="button"
                     onClick={async () => {
-                      await signIn('google', { callbackUrl: '/' });
+                      try {
+                        console.log('[Login] Starting Google Sign-In...');
+                        const result = await signIn('google', { callbackUrl: '/', redirect: false });
+                        console.log('[Login] Google Sign-In result:', result);
+                        
+                        if (result?.error) {
+                          console.error('[Login] Google Sign-In error:', result.error);
+                          setError(`Google Login Error: ${result.error}. Check your Railway environment variables.`);
+                        } else if (result?.url) {
+                          window.location.href = result.url;
+                        }
+                      } catch (err: any) {
+                        console.error('[Login] Google Sign-In Exception:', err);
+                        setError(`Google Login Exception: ${err.message || 'Unknown error'}`);
+                      }
                     }}
                     className="w-full bg-white/5 border border-white/10 text-white font-bold text-sm tracking-widest uppercase py-4 rounded-xl hover:bg-white/10 transition-all flex items-center justify-center gap-3 group"
                   >
