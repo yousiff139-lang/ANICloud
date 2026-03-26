@@ -87,9 +87,9 @@ export const authOptions: NextAuthOptions = {
     async redirect({ url, baseUrl }) {
       console.log('[Auth] Redirect callback:', { url, baseUrl });
       
-      // If redirecting to login after successful sign in, override to premium
+      // If redirecting to login after successful sign in, override to home or profile
       if (url.includes('/login') || url.includes('/api/auth') || url === baseUrl || url === `${baseUrl}/`) {
-        return `${baseUrl}/premium`;
+        return `${baseUrl}/`;
       }
       
       // If URL starts with base URL, or is a relative path, it's safe to redirect
@@ -110,14 +110,14 @@ export const authOptions: NextAuthOptions = {
           // Always re-fetch from DB to ensure we have the latest and avoid passing large base64 in cookie
           const freshUser = await prisma.user.findUnique({
             where: { id: userId },
-            include: { subscription: true, profile: true }
+            include: { profile: true }
           });
           
           if (freshUser) {
             token.id = freshUser.id; // Ensure ID is present
             token.name = freshUser.name;
             token.picture = freshUser.profile?.avatar ? `/api/profile/avatar?v=${Date.now()}` : null;
-            token.plan = freshUser.subscription?.plan || "free";
+            token.plan = "ultimate";
             console.log('[Auth] JWT refreshed from DB successfully:', { 
               name: token.name, 
               hasAvatar: !!freshUser.profile?.avatar,
@@ -139,18 +139,17 @@ export const authOptions: NextAuthOptions = {
             const userWithProfile = await prisma.user.findUnique({
               where: { id: user.id },
               include: { 
-                subscription: true,
                 profile: true
               }
             });
-            token.plan = userWithProfile?.subscription?.plan || "free";
+            token.plan = "ultimate";
             token.picture = userWithProfile?.profile?.avatar ? `/api/profile/avatar?v=${Date.now()}` : null;
             if (userWithProfile?.name) token.name = userWithProfile.name;
             
             console.log('[Auth] JWT callback - Data assigned:', { plan: token.plan, hasAvatar: !!token.picture });
           } catch (subErr) {
             console.error('[Auth] JWT callback - DB fetch failed:', subErr);
-            token.plan = "free"; 
+            token.plan = "ultimate"; 
           }
         } else if (!token.id && token.sub) {
           // Sync token.id with token.sub for consistency if missing
@@ -166,7 +165,7 @@ export const authOptions: NextAuthOptions = {
       try {
         if (session.user) {
           (session.user as any).id = token.id;
-          (session.user as any).plan = token.plan || "free";
+          (session.user as any).plan = "ultimate";
           session.user.name = token.name as string | null;
           session.user.image = token.picture as string | null;
         }
@@ -215,24 +214,8 @@ export const authOptions: NextAuthOptions = {
         }
         
         if (userEmail === "karrarmayaly@gmail.com") {
-          const farFuture = new Date();
-          farFuture.setFullYear(farFuture.getFullYear() + 50);
-
-          await prisma.subscription.upsert({
-            where: { userId: String(user.id) },
-            update: {
-              plan: "ultimate",
-              status: "active",
-              endDate: farFuture
-            },
-            create: {
-              userId: String(user.id),
-              plan: "ultimate",
-              status: "active",
-              startDate: new Date(),
-              endDate: farFuture
-            }
-          });
+          console.log('[Auth] Admin user recognized:', userEmail);
+          // No subscription to upsert anymore
         }
         
         return true;
