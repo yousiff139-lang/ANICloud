@@ -15,17 +15,19 @@ export default function AdInterstitial({ onComplete, animeTitle }: AdInterstitia
   const [isHovered, setIsHovered] = useState(false);
   const [timer, setTimer] = useState(5);
 
+  const adLink = process.env.NEXT_PUBLIC_ADSTERRA_LINK || "https://www.google.com";
+
   const ads = [
     {
-      title: "Premium VPN Service",
-      description: "Protect your privacy while streaming your favorite anime. Get 70% off today!",
-      link: "https://google.com/search?q=vpn+service",
+      title: "Sponsor Offer",
+      description: "Click here to discover our sponsor and unlock your episode!",
+      link: adLink,
       image: "https://images.unsplash.com/photo-1563986768609-322da13575f3?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
     },
     {
-      title: "Anime Merch Store",
-      description: "Exclusive limited edition figures and apparel. Worldwide shipping available.",
-      link: "https://google.com/search?q=anime+merchandise",
+      title: "Final Step",
+      description: "One last step! Visit our sponsor to start streaming immediately.",
+      link: adLink,
       image: "https://images.unsplash.com/photo-1613373974535-77292c54ba51?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
     }
   ];

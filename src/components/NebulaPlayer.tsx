@@ -21,6 +21,10 @@ interface NebulaPlayerProps {
   onProgress?: (time: number, duration: number) => void;
   onEpSelect?: (ep: number) => void;
   onBack?: () => void;
+  onPlay?: () => void;
+  onPause?: () => void;
+  onSeek?: (time: number) => void;
+  playerControlRef?: React.MutableRefObject<any>;
 }
 
 export default function NebulaPlayer({ 
@@ -35,7 +39,11 @@ export default function NebulaPlayer({
   initialTime,
   onProgress,
   onEpSelect,
-  onBack 
+  onBack,
+  onPlay,
+  onPause,
+  onSeek,
+  playerControlRef 
 }: NebulaPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -98,6 +106,32 @@ export default function NebulaPlayer({
     if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
     if (isPlaying) setShowControls(false);
   };
+
+  useEffect(() => {
+    if (playerControlRef) {
+      playerControlRef.current = {
+        seekTo: (time: number) => {
+          if (videoRef.current && isFinite(time)) {
+             videoRef.current.currentTime = time;
+             setProgress((time / videoRef.current.duration) * 100);
+          }
+        },
+        forcePlay: () => {
+          if (videoRef.current && videoRef.current.paused) {
+             videoRef.current.play().catch(() => {});
+             setIsPlaying(true);
+          }
+        },
+        forcePause: () => {
+          if (videoRef.current && !videoRef.current.paused) {
+             videoRef.current.pause();
+             setIsPlaying(false);
+          }
+        },
+        getCurrentTime: () => videoRef.current?.currentTime || 0
+      };
+    }
+  }, [playerControlRef]);
 
   useEffect(() => {
     let isMounted = true;
@@ -199,12 +233,20 @@ export default function NebulaPlayer({
 
   const skipBackward = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (videoRef.current) videoRef.current.currentTime -= 10;
+    if (videoRef.current) {
+      const newTime = videoRef.current.currentTime - 10;
+      videoRef.current.currentTime = newTime;
+      onSeek && onSeek(newTime);
+    }
   };
 
   const skipForward = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (videoRef.current) videoRef.current.currentTime += 10;
+    if (videoRef.current) {
+      const newTime = videoRef.current.currentTime + 10;
+      videoRef.current.currentTime = newTime;
+      onSeek && onSeek(newTime);
+    }
   };
 
   const togglePlay = (e?: React.MouseEvent) => {
@@ -212,6 +254,7 @@ export default function NebulaPlayer({
     if (videoRef.current) {
       if (isPlaying) {
         videoRef.current.pause();
+        onPause && onPause();
       } else {
         const playPromise = videoRef.current.play();
         if (playPromise !== undefined) {
@@ -219,6 +262,7 @@ export default function NebulaPlayer({
             if (error.name !== 'AbortError') console.error('Play error:', error);
           });
         }
+        onPlay && onPlay();
       }
       setIsPlaying(!isPlaying);
       handleMouseMove();
@@ -254,6 +298,7 @@ export default function NebulaPlayer({
       if (isFinite(time)) {
         videoRef.current.currentTime = time;
         setProgress(Number(e.target.value));
+        onSeek && onSeek(time);
       }
     }
   };

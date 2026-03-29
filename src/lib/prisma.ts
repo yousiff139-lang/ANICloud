@@ -1,22 +1,21 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from '../generated/client'
+import { PrismaLibSql } from '@prisma/adapter-libsql'
 
-const globalForPrisma = global as unknown as { prisma: PrismaClient };
+const prismaClientSingleton = () => {
+  const adapter = new PrismaLibSql({
+    url: process.env.DATABASE_URL || 'file:./prisma/dev.db',
+  })
 
-let prisma: PrismaClient;
-
-try {
-  // Standard Prisma initialization for SQLite or other databases
-  // In production, DATABASE_URL should be set. If not, Prisma defaults to schema.prisma value.
-  console.log('[Prisma] Initializing standard PrismaClient...');
-  
-  prisma = globalForPrisma.prisma || new PrismaClient({
-    log: ["error", "warn"],
-  });
-} catch (error) {
-  console.error('[Prisma] Critical Initialization Error:', error);
-  prisma = globalForPrisma.prisma || new PrismaClient();
+  return new PrismaClient({
+    adapter,
+    log: ['error', 'warn']
+  })
 }
 
-export { prisma };
+declare const globalThis: {
+  prismaGlobal: ReturnType<typeof prismaClientSingleton>;
+} & typeof global;
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+export const prisma = globalThis.prismaGlobal ?? prismaClientSingleton()
+
+if (process.env.NODE_ENV !== 'production') globalThis.prismaGlobal = prisma

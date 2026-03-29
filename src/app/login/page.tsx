@@ -19,9 +19,10 @@ export default function LoginPage() {
   // Auto-redirect if already logged in
   useEffect(() => {
     if (status === 'authenticated') {
-      window.location.href = '/';
+      router.push('/');
+      router.refresh();
     }
-  }, [status]);
+  }, [status, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,7 +51,8 @@ export default function LoginPage() {
         email,
         password,
         twoFactorCode: show2FA ? twoFactorCode : undefined,
-        redirect: false,
+        redirect: true,
+        callbackUrl: '/'
       });
 
       if (res?.error) {
@@ -59,13 +61,6 @@ export default function LoginPage() {
         } else {
           setError('Invalid email or password');
         }
-        setLoading(false);
-      } else if (res?.ok) {
-        // Wait for session to be established
-        await new Promise(resolve => setTimeout(resolve, 500));
-        window.location.href = '/';
-      } else {
-        setError('An unexpected error occurred');
         setLoading(false);
       }
     } catch (err) {
@@ -190,15 +185,7 @@ export default function LoginPage() {
                     onClick={async () => {
                       try {
                         console.log('[Login] Starting Google Sign-In...');
-                        const result = await signIn('google', { callbackUrl: '/', redirect: false });
-                        console.log('[Login] Google Sign-In result:', result);
-                        
-                        if (result?.error) {
-                          console.error('[Login] Google Sign-In error:', result.error);
-                          setError(`Google Login Error: ${result.error}. Check your Railway environment variables.`);
-                        } else if (result?.url) {
-                          window.location.href = result.url;
-                        }
+                        await signIn('google', { callbackUrl: '/' });
                       } catch (err: any) {
                         console.error('[Login] Google Sign-In Exception:', err);
                         setError(`Google Login Exception: ${err.message || 'Unknown error'}`);

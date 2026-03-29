@@ -1,5 +1,7 @@
 generator client {
   provider   = "prisma-client-js"
+  engineType = "library"
+  output     = "../src/generated/client"
 }
 
 datasource db {
@@ -27,6 +29,9 @@ model User {
   twoFactorEnabled Boolean @default(false)
   twoFactorPending String?
   recoveryCodes RecoveryCode[]
+  posts CommunityPost[]
+  comments PostComment[]
+  likes PostLike[]
 }
 
 model LibraryItem {
@@ -236,4 +241,50 @@ model RecoveryCode {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   @@index([userId])
+}
+
+model CommunityPost {
+  id        String   @id @default(cuid())
+  userId    String
+  content   String
+  image     String?
+  animeId   Int?     // Topic of discussion
+  episode   Int?
+  isSpoiler Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comments  PostComment[]
+  likes     PostLike[]
+  
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model PostComment {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([postId])
+  @@index([userId])
+}
+
+model PostLike {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+  
+  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([postId, userId])
 }

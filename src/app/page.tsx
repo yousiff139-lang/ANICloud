@@ -20,23 +20,17 @@ export default function Home() {
   
   // Data Fetching
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      const [trendingData, seriesData, popularData, newReleasesData, moviesData] = await Promise.all([
-        getTrendingAnime(),
-        getAnimeSeries(),
-        getPopularAllTime(),
-        getNewReleases(),
-        getAnimeMovies()
-      ]);
-      setTrending(trendingData);
-      setAnimeSeries(seriesData);
-      setPopularAllTime(popularData);
-      setNewReleases(newReleasesData);
-      setAnimeMovies(moviesData);
+    // Fetch Trending for Hero immediately and unlock UI fast
+    getTrendingAnime().then(data => {
+      setTrending(data);
       setLoading(false);
-    };
-    fetchData();
+    });
+
+    // Fetch others in background independently
+    getAnimeSeries().then(setAnimeSeries);
+    getPopularAllTime().then(setPopularAllTime);
+    getNewReleases().then(setNewReleases);
+    getAnimeMovies().then(setAnimeMovies);
   }, []);
 
   // Hero Section Cycling
@@ -177,6 +171,22 @@ export default function Home() {
 
 function CategoryRow({ title, category, items }: { title: string, category: string, items: any[] }) {
   const router = useRouter();
+
+  if (!items || items.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="h-8 w-48 bg-white/10 rounded animate-pulse" />
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="h-64 rounded-2xl glass border border-white/5 animate-pulse bg-white/5" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">

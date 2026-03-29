@@ -7,6 +7,7 @@ import { io, Socket } from 'socket.io-client';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Users, MessageCircle, Copy, Check, LogOut, Crown } from 'lucide-react';
 import NebulaPlayer from '@/components/NebulaPlayer';
+import WebRTCNetwork from '@/components/WebRTCNetwork';
 
 interface PartyData {
   id: string;
@@ -55,6 +56,7 @@ export default function WatchPartyPage() {
   const [reactions, setReactions] = useState<Array<{ emoji: string; id: string }>>([]);
 
   const videoRef = useRef<any>(null);
+  const playerControlRef = useRef<any>(null);
   const isHost = party?.host.id === (session?.user as any)?.id;
 
   // Redirect if not authenticated
@@ -101,9 +103,14 @@ export default function WatchPartyPage() {
     });
 
     socketInstance.on('playback-synced', (data: { currentTime: number; isPlaying: boolean }) => {
-      if (videoRef.current && !isHost) {
-        // Sync video for non-hosts
+      if (!isHost && playerControlRef.current) {
         console.log('Syncing playback:', data);
+        playerControlRef.current.seekTo(data.currentTime);
+        if (data.isPlaying) {
+           playerControlRef.current.forcePlay();
+        } else {
+           playerControlRef.current.forcePause();
+        }
       }
     });
 
@@ -223,6 +230,22 @@ export default function WatchPartyPage() {
                 title={`${party.animeTitle} - Episode ${party.episode}`}
                 type="hls"
                 malId={party.animeId}
+                playerControlRef={playerControlRef}
+                onPlay={() => {
+                  if (isHost && socket && playerControlRef.current) {
+                     socket.emit('sync-playback', { roomCode, isPlaying: true, currentTime: playerControlRef.current.getCurrentTime() });
+                  }
+                }}
+                onPause={() => {
+                  if (isHost && socket && playerControlRef.current) {
+                     socket.emit('sync-playback', { roomCode, isPlaying: false, currentTime: playerControlRef.current.getCurrentTime() });
+                  }
+                }}
+                onSeek={(time) => {
+                  if (isHost && socket) {
+                     socket.emit('sync-playback', { roomCode, isPlaying: true, currentTime: time });
+                  }
+                }}
               />
               
               {/* Floating Reactions */}
@@ -243,16 +266,21 @@ export default function WatchPartyPage() {
             </div>
 
             {/* Quick Reactions */}
-            <div className="flex items-center gap-3 mt-4">
+            <div className="flex items-center gap-3 mt-4 mb-8">
               {['❤️', '😂', '😮', '👏', '🔥'].map((emoji) => (
                 <button
                   key={emoji}
                   onClick={() => sendReaction(emoji)}
-                  className="text-3xl hover:scale-125 transition-transform"
+                  className="text-3xl hover:scale-125 transition-transform drop-shadow-[0_0_10px_rgba(255,255,255,0.2)]"
                 >
                   {emoji}
                 </button>
               ))}
+            </div>
+
+            {/* WebRTC Camera Network */}
+            <div className="glass rounded-[2rem] p-6 border border-white/10 mt-6 shadow-2xl">
+               <WebRTCNetwork socket={socket} roomCode={roomCode} isHost={isHost} />
             </div>
           </div>
 

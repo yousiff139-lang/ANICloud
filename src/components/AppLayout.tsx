@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Search, Bell, Settings, User, Compass, Library, History, Heart, Moon, Sun, LogIn, LogOut, Bookmark, Share2 } from 'lucide-react';
+import { Play, Search, Bell, Settings, User, Compass, Library, History, Heart, Moon, Sun, LogIn, LogOut, Bookmark, Share2, MessageSquare } from 'lucide-react';
 import { searchAnime, Anime } from '@/lib/api';
 import NotificationsDropdown from './Notifications';
 import AccountDropdown from './AccountDropdown';
@@ -84,6 +84,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <SidebarItem icon={<Bookmark size={20} />} label="Library" href="/library" active={pathname === '/library'} isOpen={isSidebarOpen} theme={theme} />
           <SidebarItem icon={<History size={20} />} label="Recent" href="/recent" active={pathname === '/recent'} isOpen={isSidebarOpen} theme={theme} />
           <SidebarItem icon={<Heart size={20} />} label="Favorites" href="/favorites" active={pathname === '/favorites'} isOpen={isSidebarOpen} theme={theme} />
+          <SidebarItem icon={<MessageSquare size={20} />} label="Community" href="/community" active={pathname === '/community'} isOpen={isSidebarOpen} theme={theme} />
           <SidebarItem icon={<Share2 size={20} />} label="Social" href="/social" active={pathname === '/social'} isOpen={isSidebarOpen} theme={theme} />
         </nav>
 

@@ -1,0 +1,289 @@
+generator client {
+  provider   = "prisma-client-js"
+  engineType = "library"
+  output     = "../src/generated/client"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id               String              @id @default(cuid())
+  name             String?
+  email            String              @unique
+  password         String
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  libraries        LibraryItem[]
+  playerSettings   UserPlayerSettings?
+  watchHistory     WatchHistory[]
+  hostedParties    WatchParty[]        @relation("HostedParties")
+  partyMemberships WatchPartyMember[]
+  partyMessages    WatchPartyMessage[]
+  reviews          Review[]
+  reviewVotes      ReviewVote[]
+  preferences      UserPreference?
+  profile          UserProfile?
+  twoFactorSecret  String?
+  twoFactorEnabled Boolean             @default(false)
+  twoFactorPending String?
+  recoveryCodes    RecoveryCode[]
+  posts            CommunityPost[]
+  comments         PostComment[]
+  likes            PostLike[]
+}
+
+model LibraryItem {
+  id         String   @id @default(cuid())
+  userId     String
+  animeId    Int
+  title      String
+  image      String?
+  isFavorite Boolean  @default(false)
+  isLibrary  Boolean  @default(true)
+  addedAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, animeId])
+}
+
+model AnimeTimestamps {
+  id         String   @id @default(cuid())
+  animeId    Int
+  episode    Int
+  introStart Int? // seconds
+  introEnd   Int?
+  outroStart Int?
+  outroEnd   Int?
+  credits    Int?
+  createdAt  DateTime @default(now())
+
+  @@unique([animeId, episode])
+}
+
+model UserPlayerSettings {
+  id            String  @id @default(cuid())
+  userId        String  @unique
+  autoSkipIntro Boolean @default(true)
+  autoSkipOutro Boolean @default(false)
+  defaultSpeed  Float   @default(1.0)
+  subtitleSize  String  @default("medium")
+  subtitleColor String  @default("#FFFFFF")
+  subtitleBg    String  @default("rgba(0,0,0,0.7)")
+  volume        Float   @default(1.0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model WatchHistory {
+  id            String   @id @default(cuid())
+  userId        String
+  animeId       Int
+  episode       Int
+  watchedAt     DateTime @default(now())
+  duration      Int // seconds watched
+  totalDuration Int // total episode duration
+  completed     Boolean  @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, animeId, episode])
+  @@index([userId, animeId])
+}
+
+model WatchParty {
+  id          String   @id @default(cuid())
+  hostId      String
+  animeId     Int
+  episode     Int
+  animeTitle  String
+  animePoster String?
+  roomCode    String   @unique
+  isPublic    Boolean  @default(false)
+  maxMembers  Int      @default(10)
+  currentTime Float    @default(0)
+  isPlaying   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime
+
+  host     User                @relation("HostedParties", fields: [hostId], references: [id], onDelete: Cascade)
+  members  WatchPartyMember[]
+  messages WatchPartyMessage[]
+
+  @@index([roomCode])
+  @@index([hostId])
+}
+
+model WatchPartyMember {
+  id       String   @id @default(cuid())
+  userId   String
+  partyId  String
+  nickname String?
+  isActive Boolean  @default(true)
+  joinedAt DateTime @default(now())
+  lastSeen DateTime @default(now())
+
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  party WatchParty @relation(fields: [partyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, partyId])
+  @@index([partyId])
+}
+
+model WatchPartyMessage {
+  id        String   @id @default(cuid())
+  partyId   String
+  userId    String
+  username  String
+  message   String
+  type      String   @default("text") // text, emoji, system
+  createdAt DateTime @default(now())
+
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  party WatchParty @relation(fields: [partyId], references: [id], onDelete: Cascade)
+
+  @@index([partyId])
+  @@index([createdAt])
+}
+
+model Subtitle {
+  id         String   @id @default(cuid())
+  animeId    Int
+  episode    Int
+  language   String // en, ar, ja
+  label      String // "English", "Arabic", "Japanese"
+  url        String
+  format     String   @default("vtt") // vtt, srt, ass
+  uploadedBy String?
+  isOfficial Boolean  @default(false)
+  isVerified Boolean  @default(false)
+  downloads  Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  @@unique([animeId, episode, language, url])
+  @@index([animeId, episode])
+  @@index([language])
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  userId    String
+  animeId   Int
+  rating    Int // 1-10
+  title     String?
+  content   String
+  helpful   Int      @default(0)
+  unhelpful Int      @default(0)
+  spoiler   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  votes ReviewVote[]
+
+  @@unique([userId, animeId])
+  @@index([animeId])
+  @@index([rating])
+}
+
+model ReviewVote {
+  id        String   @id @default(cuid())
+  userId    String
+  reviewId  String
+  isHelpful Boolean
+  createdAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, reviewId])
+}
+
+model UserPreference {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  genreScores       Json // { "Action": 0.8, "Romance": 0.3 }
+  favoriteGenres    String   @default("") // comma-separated
+  dislikedGenres    String   @default("") // comma-separated
+  preferredLanguage String   @default("en") // subtitle preference
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model UserProfile {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  bio          String?
+  avatar       String?
+  banner       String?
+  location     String?
+  website      String?
+  isPublic     Boolean  @default(true)
+  totalWatched Int      @default(0)
+  totalHours   Float    @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model RecoveryCode {
+  id        String   @id @default(cuid())
+  userId    String
+  codeHash  String
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model CommunityPost {
+  id        String   @id @default(cuid())
+  userId    String
+  content   String
+  image     String?
+  animeId   Int? // Topic of discussion
+  episode   Int?
+  isSpoiler Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comments PostComment[]
+  likes    PostLike[]
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model PostComment {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  post CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+  @@index([userId])
+}
+
+model PostLike {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  post CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+}
