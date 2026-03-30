@@ -3,6 +3,7 @@ import { Inter, Outfit } from "next/font/google";
 import "./globals.css";
 import AppLayout from "@/components/AppLayout";
 import { Providers } from "@/components/Providers";
+import Script from "next/script";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" });
@@ -22,6 +23,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <Script 
+          src="https://pl29012834.profitablecpmratenetwork.com/fa/04/4d/fa044d8118db908767b24b508db48cec.js"
+          strategy="lazyOnload"
+        />
+      </head>
       <body className={`${inter.variable} ${outfit.variable} antialiased bg-[#0B0E14]`} suppressHydrationWarning>
         <Providers>
           <AppLayout>

@@ -15,7 +15,7 @@ export default function AdInterstitial({ onComplete, animeTitle }: AdInterstitia
   const [isHovered, setIsHovered] = useState(false);
   const [timer, setTimer] = useState(5);
 
-  const adLink = process.env.NEXT_PUBLIC_ADSTERRA_LINK || "https://www.google.com";
+  const adLink = process.env.NEXT_PUBLIC_ADSTERRA_LINK || "https://www.profitablecpmratenetwork.com/baganm08j?key=d103e042c336bf58c4528de9a1ca7040";
 
   const ads = [
     {
