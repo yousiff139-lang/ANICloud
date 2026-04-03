@@ -137,12 +137,18 @@ export default function Home() {
                     exit={{ opacity: 0, scale: 0.9 }}
                     transition={{ duration: 0.5 }}
                   >
-                    <NebulaPlayer 
-                       url={currentAnime.trailer?.embed_url || currentAnime.trailer?.url || "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8"} 
-                       poster={currentAnime.images.webp.large_image_url} 
-                       title={currentAnime.title}
-                       type={(currentAnime.trailer?.embed_url || currentAnime.trailer?.url) ? 'youtube' : 'hls'}
-                    />
+                    {(currentAnime.trailer?.embed_url || currentAnime.trailer?.url) ? (
+                      <NebulaPlayer 
+                         url={currentAnime.trailer.embed_url || currentAnime.trailer.url || ""} 
+                         poster={currentAnime.images.webp.large_image_url} 
+                         title={currentAnime.title}
+                         type="youtube"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-black flex items-center justify-center relative overflow-hidden rounded-2xl">
+                         <div className="absolute inset-0 bg-cover bg-center opacity-50 blur-md" style={{ backgroundImage: `url(${currentAnime.images.webp.large_image_url})` }} />
+                      </div>
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>

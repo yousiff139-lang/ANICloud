@@ -83,8 +83,8 @@ export default function AnimeDetail() {
         description={anime.synopsis || `Watch ${anime.title} online for free in HD on ANICloud.`}
         image={anime.images.webp.large_image_url}
         url={`${typeof window !== 'undefined' ? window.location.origin : 'https://anicloud-production.up.railway.app'}/anime/${id}`}
-        rating={anime.score}
-        genres={anime.genres?.map((g: any) => g.name)}
+        rating={anime.score || 0}
+        genres={anime.genres?.map((g: any) => g.name) || []}
       />
       <BreadcrumbJsonLd
         items={[
@@ -120,9 +120,9 @@ export default function AnimeDetail() {
             >
               <div className="flex items-center gap-4 mb-4">
                 <span className="px-3 py-1 rounded bg-neonCyan/20 text-neonCyan text-xs font-bold border border-neonCyan/30">
-                  {anime.score} Score
+                  {anime.score || 'N/A'} Score
                 </span>
-                <span className="text-white/60 text-sm">{anime.genres.map(g => g.name).join(', ')}</span>
+                <span className="text-white/60 text-sm">{anime.genres?.map(g => g.name).join(', ') || ''}</span>
               </div>
               <h1 className="text-5xl font-outfit font-black mb-6">{anime.title}</h1>
               <p className="text-lg text-white/70 leading-relaxed">
@@ -206,17 +206,27 @@ export default function AnimeDetail() {
                 <Film className="text-pulsingViolet" />
                 Trailer
               </h3>
-              <NebulaPlayer 
-                url={anime.trailer?.embed_url || "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8"}
-                poster={anime.images.webp.large_image_url}
-                title={anime.title}
-                malId={anime.mal_id}
-                type={anime.trailer?.embed_url ? 'youtube' : 'hls'}
-              />
+              {anime.trailer?.embed_url ? (
+                <NebulaPlayer 
+                  url={anime.trailer.embed_url}
+                  poster={anime.images.webp.large_image_url}
+                  title={anime.title}
+                  malId={anime.mal_id}
+                  type="youtube"
+                />
+              ) : (
+                <div className="relative w-full aspect-video rounded-3xl overflow-hidden bg-white/5 border border-white/10 flex items-center justify-center">
+                  <div className="absolute inset-0 bg-cover bg-center opacity-30 blur-sm" style={{ backgroundImage: `url(${anime.images.webp.large_image_url})` }} />
+                  <div className="z-10 flex flex-col items-center text-white/50">
+                    <Film size={48} className="mb-4 opacity-50" />
+                    <span className="font-bold tracking-widest text-sm uppercase">No Trailer Available</span>
+                  </div>
+                </div>
+              )}
               
               <div className="mt-8 glass rounded-2xl p-6 border border-white/5 space-y-4">
-                <StatItem icon={<Star className="text-yellow-400" />} label="Rating" value={anime.score.toString()} />
-                <StatItem icon={<Clock className="text-neonCyan" />} label="Status" value="Airing" />
+                <StatItem icon={<Star className="text-yellow-400" />} label="Rating" value={anime.score?.toString() || 'N/A'} />
+                <StatItem icon={<Clock className="text-neonCyan" />} label="Status" value={(anime as any).status || 'Airing'} />
                 <StatItem icon={<Calendar className="text-pulsingViolet" />} label="Season" value="Fall 2023" />
               </div>
 

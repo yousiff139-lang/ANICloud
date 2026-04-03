@@ -37,12 +37,13 @@ export async function GET(
     return NextResponse.json({ error: 'Missing ID or Episode' }, { status: 400 });
   }
 
+  let animeInfo: any = null;
+
   try {
     const epNum = parseInt(episode);
     const provider = new ANIME.AnimeKai();
     
     let animeId = PROVIDER_ID_CACHE.get(title) || (titleEn ? PROVIDER_ID_CACHE.get(titleEn) : undefined);
-    let animeInfo: any = null;
 
     if (!animeId) {
       let searchResults: any = { results: [] };
@@ -141,11 +142,12 @@ export async function GET(
   } catch (error) {
     console.error('❌ Stream extraction failed completely:', error);
     
-    const fallback = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8";
+    const fallback = `https://vidsrc.net/embed/anime/${id}/${episode}`;
     return NextResponse.json({
       master: fallback,
       resolutions: { "1080p": fallback, "720p": fallback, "480p": fallback },
-      type: "hls"
+      type: "iframe",
+      episodes: animeInfo?.episodes
     });
   }
 }
