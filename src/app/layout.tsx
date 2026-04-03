@@ -3,6 +3,7 @@ import { Inter, Outfit } from "next/font/google";
 import "./globals.css";
 import AppLayout from "@/components/AppLayout";
 import { Providers } from "@/components/Providers";
+import { WebsiteJsonLd, FAQJsonLd } from "@/components/JsonLd";
 import Script from "next/script";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
@@ -21,6 +22,7 @@ export const metadata: Metadata = {
   keywords: [
     "anime",
     "watch anime online",
+    "watch anime free",
     "anime streaming",
     "free anime",
     "HD anime",
@@ -31,6 +33,11 @@ export const metadata: Metadata = {
     "popular anime",
     "ANICloud",
     "anime aggregator",
+    "anime 2026",
+    "best anime",
+    "anime episodes online",
+    "subbed anime",
+    "dubbed anime",
   ],
   authors: [{ name: "ANICloud" }],
   creator: "ANICloud",
@@ -89,6 +96,31 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <WebsiteJsonLd
+          url={siteUrl}
+          name="ANICloud"
+          description="Watch anime online for free in HD. Browse trending, popular, and new release anime series and movies."
+        />
+        <FAQJsonLd
+          questions={[
+            {
+              question: "What is ANICloud?",
+              answer: "ANICloud is a free, next-generation anime streaming platform where you can watch the latest anime series, movies, and new releases in HD quality.",
+            },
+            {
+              question: "Is ANICloud free to use?",
+              answer: "Yes, ANICloud is completely free. You can browse, discover, and watch anime without any subscription or payment.",
+            },
+            {
+              question: "What anime can I watch on ANICloud?",
+              answer: "ANICloud features thousands of anime titles including trending shows, popular all-time classics, seasonal anime, new releases, anime movies, and OVAs.",
+            },
+            {
+              question: "How do I search for anime on ANICloud?",
+              answer: "Use the Browse page to search by title, or use the Discover page to filter by genre, year, season, type, score, and more.",
+            },
+          ]}
+        />
         <Script
           src="https://pl29012834.profitablecpmratenetwork.com/fa/04/4d/fa044d8118db908767b24b508db48cec.js"
           strategy="lazyOnload"

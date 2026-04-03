@@ -9,6 +9,7 @@ import NebulaPlayer from '@/components/NebulaPlayer';
 import FavoriteButton from '@/components/FavoriteButton';
 import ReviewSection from '@/components/ReviewSection';
 import WatchPartyButton from '@/components/WatchPartyButton';
+import { AnimeJsonLd, BreadcrumbJsonLd } from '@/components/JsonLd';
 
 export default function AnimeDetail() {
   const { id } = useParams();
@@ -76,6 +77,22 @@ export default function AnimeDetail() {
 
   return (
     <div className="bg-[#0B0E14] text-white">
+      {/* Structured Data for Google Rich Results */}
+      <AnimeJsonLd
+        name={anime.title}
+        description={anime.synopsis || `Watch ${anime.title} online for free in HD on ANICloud.`}
+        image={anime.images.webp.large_image_url}
+        url={`${typeof window !== 'undefined' ? window.location.origin : 'https://anicloud-production.up.railway.app'}/anime/${id}`}
+        rating={anime.score}
+        genres={anime.genres?.map((g: any) => g.name)}
+      />
+      <BreadcrumbJsonLd
+        items={[
+          { name: 'Home', url: 'https://anicloud-production.up.railway.app' },
+          { name: 'Browse', url: 'https://anicloud-production.up.railway.app/browse' },
+          { name: anime.title, url: `https://anicloud-production.up.railway.app/anime/${id}` },
+        ]}
+      />
       {/* Hero Backdrop */}
       <div className="relative h-[60vh] w-full">
         <div 
