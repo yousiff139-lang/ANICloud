@@ -28,10 +28,20 @@ export interface Anime {
   genres: { name: string }[];
 }
 
+const removeDuplicates = (animes: Anime[]): Anime[] => {
+  if (!animes || !Array.isArray(animes)) return [];
+  const seen = new Set();
+  return animes.filter(anime => {
+    if (seen.has(anime.mal_id)) return false;
+    seen.add(anime.mal_id);
+    return true;
+  });
+};
+
 export const getTrendingAnime = async (): Promise<Anime[]> => {
   try {
     const response = await api.get(`${JIKAN_BASE_URL}/top/anime?filter=airing&limit=10`);
-    return response.data.data;
+    return removeDuplicates(response.data.data);
   } catch (error) {
     return [];
   }
@@ -40,7 +50,7 @@ export const getTrendingAnime = async (): Promise<Anime[]> => {
 export const getAnimeSeries = async (): Promise<Anime[]> => {
   try {
     const response = await api.get(`${JIKAN_BASE_URL}/top/anime?type=tv&limit=15`);
-    return response.data.data;
+    return removeDuplicates(response.data.data);
   } catch (error) {
     return [];
   }
@@ -49,7 +59,7 @@ export const getAnimeSeries = async (): Promise<Anime[]> => {
 export const getPopularAllTime = async (): Promise<Anime[]> => {
   try {
     const response = await api.get(`${JIKAN_BASE_URL}/top/anime?filter=bypopularity&limit=15`);
-    return response.data.data;
+    return removeDuplicates(response.data.data);
   } catch (error) {
     return [];
   }
@@ -58,7 +68,7 @@ export const getPopularAllTime = async (): Promise<Anime[]> => {
 export const getAnimeMovies = async (): Promise<Anime[]> => {
   try {
     const response = await api.get(`${JIKAN_BASE_URL}/top/anime?type=movie&limit=15`);
-    return response.data.data;
+    return removeDuplicates(response.data.data);
   } catch (error) {
     return [];
   }
@@ -67,7 +77,7 @@ export const getAnimeMovies = async (): Promise<Anime[]> => {
 export const getNewReleases = async (): Promise<Anime[]> => {
   try {
     const response = await api.get(`${JIKAN_BASE_URL}/seasons/now?limit=15`);
-    return response.data.data;
+    return removeDuplicates(response.data.data);
   } catch (error) {
     return [];
   }
@@ -100,9 +110,10 @@ export const searchAnime = async (options: SearchOptions | string): Promise<{ da
     
     // Filter out promotional specials, recaps, and music videos that don't have real episodes
     if (response.data && response.data.data) {
-      response.data.data = response.data.data.filter((anime: any) => 
+      const filtered = response.data.data.filter((anime: any) => 
         anime.type !== 'Special' && anime.type !== 'Music' && anime.type !== 'Promo' && anime.type !== 'CM'
       );
+      response.data.data = removeDuplicates(filtered);
     }
     
     return response.data;
