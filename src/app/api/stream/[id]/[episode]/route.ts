@@ -78,44 +78,59 @@ export async function GET(
 
     const searchQueries = [title];
     if (titleEn && titleEn !== 'undefined') searchQueries.unshift(titleEn);
+    
+    // Add shortened variants
+    const shortTitle = title.split(' ').slice(0, 3).join(' ');
+    if (!searchQueries.includes(shortTitle)) searchQueries.push(shortTitle);
+    if (titleEn) {
+      const shortTitleEn = titleEn.split(' ').slice(0, 3).join(' ');
+      if (!searchQueries.includes(shortTitleEn)) searchQueries.push(shortTitleEn);
+    }
 
     // 1. Matching Engineering: Resolve the best provider ID across all sources
     let bestMatch: any = null;
     let highestScore = -1;
     let winningProvider: any = null;
+    let queryToUse = searchQueries[0].replace(/\(TV\)/g, '').trim();
 
-    const queryToUse = searchQueries[0].replace(/\(TV\)/g, '').trim();
-    const exactTargetLower = queryToUse.toLowerCase();
+    console.log(`🔍 AGGREGATOR: Starting vast provider search...`);
 
-    console.log(`🔍 AGGREGATOR: Starting vast provider search for "${queryToUse}"...`);
+    for (const searchQuery of searchQueries) {
+      queryToUse = searchQuery.replace(/\(TV\)/g, '').trim();
+      const exactTargetLower = queryToUse.toLowerCase();
 
-    for (const p of providers) {
-      try {
-        const results = await p.instance.search(queryToUse);
-        if (!results.results || results.results.length === 0) continue;
+      for (const p of providers) {
+        try {
+          const results = await p.instance.search(queryToUse);
+          if (!results.results || results.results.length === 0) continue;
 
-        for (const res of results.results) {
-          if (!res.title) continue;
-          let score = getSimilarityScore(exactTargetLower, res.title);
-          
-          if (queryYear && res.releaseDate && parseInt(res.releaseDate) === queryYear) {
-            score += 50;
+          for (const res of results.results) {
+            if (!res.title) continue;
+            const resTitleStr = typeof res.title === 'string' ? res.title : (res.title as any).romaji || (res.title as any).english || res.title.toString();
+            let score = getSimilarityScore(exactTargetLower, resTitleStr);
+            
+            if (queryYear && res.releaseDate && parseInt(res.releaseDate) === queryYear) {
+              score += 50;
+            }
+
+            const resTitleLower = resTitleStr.toLowerCase();
+            if (resTitleLower === exactTargetLower || resTitleLower.replace(/[^a-z0-9]/g, '') === exactTargetLower.replace(/[^a-z0-9]/g, '')) {
+              score += 200;
+            }
+
+            if (score > highestScore) {
+              highestScore = score;
+              bestMatch = res;
+              winningProvider = p;
+            }
           }
-
-          const resTitle = res.title.toLowerCase();
-          if (resTitle === exactTargetLower || resTitle.replace(/[^a-z0-9]/g, '') === exactTargetLower.replace(/[^a-z0-9]/g, '')) {
-            score += 200;
-          }
-
-          if (score > highestScore) {
-            highestScore = score;
-            bestMatch = res;
-            winningProvider = p;
-          }
+        } catch (err) {
+          console.warn(`⚠️ Provider ${p.name} search failed for "${queryToUse}":`, err);
         }
-      } catch (err) {
-        console.warn(`⚠️ Provider ${p.name} search failed:`, err);
       }
+      
+      // If we found a very strong match (>220), we can stop searching further queries
+      if (highestScore > 220) break;
     }
 
     if (bestMatch && winningProvider) {
