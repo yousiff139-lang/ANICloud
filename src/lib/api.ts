@@ -28,20 +28,7 @@ export interface Anime {
   genres: { name: string }[];
 }
 
-const getLocalData = async (category: string): Promise<Anime[]> => {
-  try {
-    const res = await axios.get('/api/anime');
-    return res.data[category] || [];
-  } catch (e) {
-    console.warn(`Local fetch failed for ${category}, falling back to Jikan...`);
-    return [];
-  }
-};
-
 export const getTrendingAnime = async (): Promise<Anime[]> => {
-  const local = await getLocalData('trending');
-  if (local.length > 0) return local;
-
   try {
     const response = await api.get(`${JIKAN_BASE_URL}/top/anime?filter=airing&limit=10`);
     return response.data.data;
@@ -51,9 +38,6 @@ export const getTrendingAnime = async (): Promise<Anime[]> => {
 };
 
 export const getAnimeSeries = async (): Promise<Anime[]> => {
-  const local = await getLocalData('anime_series');
-  if (local.length > 0) return local;
-
   try {
     const response = await api.get(`${JIKAN_BASE_URL}/top/anime?type=tv&limit=15`);
     return response.data.data;
@@ -63,9 +47,6 @@ export const getAnimeSeries = async (): Promise<Anime[]> => {
 };
 
 export const getPopularAllTime = async (): Promise<Anime[]> => {
-  const local = await getLocalData('popular_all_time');
-  if (local.length > 0) return local;
-
   try {
     const response = await api.get(`${JIKAN_BASE_URL}/top/anime?filter=bypopularity&limit=15`);
     return response.data.data;
@@ -75,9 +56,6 @@ export const getPopularAllTime = async (): Promise<Anime[]> => {
 };
 
 export const getAnimeMovies = async (): Promise<Anime[]> => {
-  const local = await getLocalData('anime_movies');
-  if (local.length > 0) return local;
-
   try {
     const response = await api.get(`${JIKAN_BASE_URL}/top/anime?type=movie&limit=15`);
     return response.data.data;
@@ -87,9 +65,6 @@ export const getAnimeMovies = async (): Promise<Anime[]> => {
 };
 
 export const getNewReleases = async (): Promise<Anime[]> => {
-  const local = await getLocalData('new_releases');
-  if (local.length > 0) return local;
-
   try {
     const response = await api.get(`${JIKAN_BASE_URL}/seasons/now?limit=15`);
     return response.data.data;

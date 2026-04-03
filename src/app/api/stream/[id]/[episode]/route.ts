@@ -39,7 +39,7 @@ export async function GET(
 
   try {
     const epNum = parseInt(episode);
-    const pahe = new ANIME.AnimePahe();
+    const provider = new ANIME.AnimeKai();
     
     let animeId = PROVIDER_ID_CACHE.get(title) || (titleEn ? PROVIDER_ID_CACHE.get(titleEn) : undefined);
     let animeInfo: any = null;
@@ -50,14 +50,14 @@ export async function GET(
 
       if (titleEn && titleEn !== 'undefined') {
         usedTitle = titleEn.replace(/\(TV\)/g, '').replace(/Part \d+/ig, '').trim();
-        console.log(`🎬 Searching AnimePahe (PRIMARY_EN) for "${usedTitle}"...`);
-        searchResults = await pahe.search(usedTitle);
+        console.log(`🎬 Searching AnimeKai (PRIMARY_EN) for "${usedTitle}"...`);
+        searchResults = await provider.search(usedTitle);
       }
 
       if (!searchResults.results || searchResults.results.length === 0) {
         usedTitle = title.replace(/\(TV\)/g, '').replace(/Part \d+/ig, '').trim();
-        console.log(`🎬 Searching AnimePahe (FALLBACK_ROMAJI) for "${usedTitle}"...`);
-        searchResults = await pahe.search(usedTitle);
+        console.log(`🎬 Searching AnimeKai (FALLBACK_ROMAJI) for "${usedTitle}"...`);
+        searchResults = await provider.search(usedTitle);
       }
 
       if (searchResults.results && searchResults.results.length > 0) {
@@ -82,18 +82,18 @@ export async function GET(
 
     if (animeId) {
       console.log(`🎬 Target: ID: ${animeId}`);
-      animeInfo = await pahe.fetchAnimeInfo(animeId);
+      animeInfo = await provider.fetchAnimeInfo(animeId);
 
       let targetEp = animeInfo?.episodes?.find((e: any) => e.number === epNum);
       
       if (!targetEp && animeInfo?.episodes && animeInfo.episodes.length >= epNum) {
         targetEp = animeInfo.episodes[epNum - 1]; 
-        console.log(`⚠️ Absolute episode number mismatch. Falling back to relative index: AnimePahe Ep ${targetEp.number}`);
+        console.log(`⚠️ Absolute episode number mismatch. Falling back to relative index: AnimeKai Ep ${targetEp.number}`);
       }
 
       if (targetEp) {
         console.log(`🎬 Fetching sources for ${targetEp.id}...`);
-        const sourcesData = await pahe.fetchEpisodeSources(targetEp.id);
+        const sourcesData = await provider.fetchEpisodeSources(targetEp.id);
         
         if (sourcesData.sources && sourcesData.sources.length > 0) {
           let masterUrl = '';
@@ -111,30 +111,18 @@ export async function GET(
             masterUrl = src.url;
           }
 
-          if (!masterUrl) masterUrl = resolutions['1080p'] || resolutions['720p'] || sourcesData.sources[0].url;
+          if (!masterUrl) masterUrl = resolutions['1080p'] || resolutions['720p'] || resolutions['default'] || sourcesData.sources[0].url;
           if (!resolutions['1080p']) resolutions['1080p'] = masterUrl;
           if (!resolutions['720p']) resolutions['720p'] = masterUrl;
           if (!resolutions['480p']) resolutions['480p'] = masterUrl;
 
-          const forceMp4 = (u: string) => {
-            if (u.includes('.m3u8') && u.includes('/stream/')) {
-              return u.replace('/stream/', '/mp4/').replace(/\/uwu\.m3u8.*/, '');
-            }
-            return u;
-          };
-
-          masterUrl = forceMp4(masterUrl);
-          for (const key in resolutions) {
-            resolutions[key] = forceMp4(resolutions[key]);
-          }
-
-          console.log(`✅ Success! Extracted AnimePahe Stream: ${masterUrl.substring(0, 60)}...`);
+          console.log(`✅ Success! Extracted AnimeKai Stream: ${masterUrl.substring(0, 60)}...`);
 
           const result = {
             master: masterUrl,
             resolutions,
-            type: 'mp4', 
-            referer: "https://kwik.cx/",
+            type: 'hls', 
+            referer: "https://animekai.to/",
             episodes: animeInfo.episodes,
             subtitles: sourcesData.subtitles || [],
           };
