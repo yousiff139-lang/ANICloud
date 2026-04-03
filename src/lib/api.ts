@@ -126,20 +126,24 @@ export const searchAnime = async (options: SearchOptions | string): Promise<{ da
 export const getAnimeById = async (id: number): Promise<Anime | null> => {
   try {
     // 1. Try local data first (it might have the optimized synced trailer)
-    const localRes = await axios.get('/api/anime');
-    const localData = localRes.data;
-    
-    let found = null;
-    for (const key in localData) {
-      if (Array.isArray(localData[key])) {
-        found = localData[key].find((a: any) => a.mal_id === id);
-        if (found) break;
+    try {
+      const localRes = await axios.get('/api/anime');
+      const localData = localRes.data;
+      
+      let found = null;
+      for (const key in localData) {
+        if (Array.isArray(localData[key])) {
+          found = localData[key].find((a: any) => a.mal_id === id);
+          if (found) break;
+        }
       }
-    }
 
-    if (found && found.trailer?.embed_url?.includes('youtube-nocookie.com')) {
-      console.log(`[API] Found optimized local trailer for ID: ${id}`);
-      return found;
+      if (found && found.trailer?.embed_url?.includes('youtube-nocookie.com')) {
+        console.log(`[API] Found optimized local trailer for ID: ${id}`);
+        return found;
+      }
+    } catch (localErr) {
+      console.warn(`[API] Local cache bypassed for ID: ${id}`);
     }
 
     // 2. Fallback to Jikan for fresh details
