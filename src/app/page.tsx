@@ -20,16 +20,18 @@ export default function Home() {
   
   // Data Fetching
   useEffect(() => {
-    // Fetch Trending for Hero immediately and unlock UI fast
-    getTrendingAnime().then(data => {
-      setTrending(data);
+    // Fetch Trending and New Releases for Hero immediately, merge them, and unlock UI fast
+    Promise.all([getTrendingAnime(), getNewReleases()]).then(([trendingData, newReleasesData]) => {
+      const combined = [...trendingData, ...newReleasesData];
+      const uniqueHeroData = Array.from(new Map(combined.map(item => [item.mal_id, item])).values());
+      setTrending(uniqueHeroData);
+      setNewReleases(newReleasesData);
       setLoading(false);
     });
 
     // Fetch others in background independently
     getAnimeSeries().then(setAnimeSeries);
     getPopularAllTime().then(setPopularAllTime);
-    getNewReleases().then(setNewReleases);
     getAnimeMovies().then(setAnimeMovies);
   }, []);
 
@@ -97,7 +99,7 @@ export default function Home() {
                 transition={{ duration: 0.5 }}
               >
                 <div className="flex items-center gap-3 mb-6">
-                  <span className="px-3 py-1 rounded bg-neonCyan/20 text-neonCyan text-[10px] uppercase font-bold tracking-widest border border-neonCyan/30">Trending Now</span>
+                  <span className="px-3 py-1 rounded bg-neonCyan/20 text-neonCyan text-[10px] uppercase font-bold tracking-widest border border-neonCyan/30">Trending & New</span>
                   <span className="text-white/60 text-sm font-medium">{currentAnime.score} Score</span>
                 </div>
                 
