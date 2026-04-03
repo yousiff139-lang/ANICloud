@@ -41,7 +41,8 @@ export async function GET(
 
   try {
     const epNum = parseInt(episode);
-    const provider = new ANIME.AnimeKai();
+    const provider = new ANIME.AnimePahe();
+    (provider as any).baseUrl = "https://animepahe.com";
     
     let animeId = PROVIDER_ID_CACHE.get(title) || (titleEn ? PROVIDER_ID_CACHE.get(titleEn) : undefined);
 
@@ -51,13 +52,13 @@ export async function GET(
 
       if (titleEn && titleEn !== 'undefined') {
         usedTitle = titleEn.replace(/\(TV\)/g, '').replace(/Part \d+/ig, '').trim();
-        console.log(`🎬 Searching AnimeKai (PRIMARY_EN) for "${usedTitle}"...`);
+        console.log(`🎬 Searching AnimePahe (PRIMARY_EN) for "${usedTitle}"...`);
         searchResults = await provider.search(usedTitle);
       }
 
       if (!searchResults.results || searchResults.results.length === 0) {
         usedTitle = title.replace(/\(TV\)/g, '').replace(/Part \d+/ig, '').trim();
-        console.log(`🎬 Searching AnimeKai (FALLBACK_ROMAJI) for "${usedTitle}"...`);
+        console.log(`🎬 Searching AnimePahe (FALLBACK_ROMAJI) for "${usedTitle}"...`);
         searchResults = await provider.search(usedTitle);
       }
 
@@ -89,7 +90,7 @@ export async function GET(
       
       if (!targetEp && animeInfo?.episodes && animeInfo.episodes.length >= epNum) {
         targetEp = animeInfo.episodes[epNum - 1]; 
-        console.log(`⚠️ Absolute episode number mismatch. Falling back to relative index: AnimeKai Ep ${targetEp.number}`);
+        console.log(`⚠️ Absolute episode number mismatch. Falling back to relative index: AnimePahe Ep ${targetEp.number}`);
       }
 
       if (targetEp) {
@@ -117,13 +118,25 @@ export async function GET(
           if (!resolutions['720p']) resolutions['720p'] = masterUrl;
           if (!resolutions['480p']) resolutions['480p'] = masterUrl;
 
-          console.log(`✅ Success! Extracted AnimeKai Stream: ${masterUrl.substring(0, 60)}...`);
+          const forceMp4 = (u: string) => {
+            if (u.includes('.m3u8') && u.includes('/stream/')) {
+              return u.replace('/stream/', '/mp4/').replace(/\/uwu\.m3u8.*/, '');
+            }
+            return u;
+          };
+
+          masterUrl = forceMp4(masterUrl);
+          for (const key in resolutions) {
+            resolutions[key] = forceMp4(resolutions[key]);
+          }
+
+          console.log(`✅ Success! Extracted AnimePahe Stream: ${masterUrl.substring(0, 60)}...`);
 
           const result = {
             master: masterUrl,
             resolutions,
-            type: 'hls', 
-            referer: "https://animekai.to/",
+            type: 'mp4', 
+            referer: "https://kwik.cx/",
             episodes: animeInfo.episodes,
             subtitles: sourcesData.subtitles || [],
           };
