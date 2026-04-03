@@ -142,7 +142,7 @@ export async function GET(
   } catch (error) {
     console.error('❌ Stream extraction failed completely:', error);
     
-    const fallback = `https://vidsrc.net/embed/anime/${id}/${episode}`;
+    const fallback = `https://www.2embed.cc/embed/anime/${id}?ep=${episode}`;
     return NextResponse.json({
       master: fallback,
       resolutions: { "1080p": fallback, "720p": fallback, "480p": fallback },
