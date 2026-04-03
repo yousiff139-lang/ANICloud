@@ -4,8 +4,6 @@ import { ANIME } from '@consumet/extensions';
 export const dynamic = 'force-dynamic';
 
 // Simple in-memory cache to prevent redundant searches and waterfalls
-// In a serverless env (Vercel), this persists across hot lambda invocations.
-// In a long-running server (Railway/Docker), this lasts until restart.
 const STREAM_CACHE = new Map<string, { data: any, timestamp: number }>();
 const PROVIDER_ID_CACHE = new Map<string, string>(); // title -> providerId
 const CACHE_TTL = 1000 * 60 * 60 * 2; // 2 hours
@@ -62,108 +60,89 @@ export async function GET(
     return NextResponse.json(cached.data);
   }
 
-  console.log(`📡 Stream Request: MAL_ID=${id}, EP=${episode}, Title=${title}, TitleEn=${titleEn}`);
+  console.log(`📡 Stream Request: MAL_ID=${id}, EP=${episode}, Title=${title}, TitleEn=${titleEn}, Year=${queryYear}`);
 
   if (!id || id === 'undefined' || !episode || episode === 'undefined') {
     return NextResponse.json({ error: 'Missing ID or Episode' }, { status: 400 });
   }
 
-  let animeInfo: any = null;
+  let finalAnimeInfo: any = null;
+  const epNum = parseInt(episode);
 
   try {
-    const epNum = parseInt(episode);
-    const provider = new ANIME.AnimePahe();
-    (provider as any).baseUrl = "https://animepahe.com";
-    
-    let animeId = PROVIDER_ID_CACHE.get(title) || (titleEn ? PROVIDER_ID_CACHE.get(titleEn) : undefined);
+    const providers = [
+      { name: 'hianime', instance: new ANIME.Hianime() },
+      { name: 'animepahe', instance: new ANIME.AnimePahe() }
+    ];
+    (providers[1].instance as any).baseUrl = "https://animepahe.com";
 
-    if (!animeId) {
-      let searchResults: any = { results: [] };
-      let usedTitle = '';
-      let exactTargetLower = '';
+    const searchQueries = [title];
+    if (titleEn && titleEn !== 'undefined') searchQueries.unshift(titleEn);
 
-      if (titleEn && titleEn !== 'undefined') {
-        usedTitle = titleEn.replace(/\(TV\)/g, '').trim();
-        exactTargetLower = usedTitle.toLowerCase();
-        console.log(`🎬 Searching AnimePahe (PRIMARY_EN) for "${usedTitle}"...`);
-        searchResults = await provider.search(usedTitle);
-      }
+    // 1. Matching Engineering: Resolve the best provider ID across all sources
+    let bestMatch: any = null;
+    let highestScore = -1;
+    let winningProvider: any = null;
 
-      if (!searchResults.results || searchResults.results.length === 0) {
-        usedTitle = title.replace(/\(TV\)/g, '').trim();
-        exactTargetLower = usedTitle.toLowerCase();
-        console.log(`🎬 Searching AnimePahe (FALLBACK_ROMAJI) for "${usedTitle}"...`);
-        searchResults = await provider.search(usedTitle);
-      }
+    const queryToUse = searchQueries[0].replace(/\(TV\)/g, '').trim();
+    const exactTargetLower = queryToUse.toLowerCase();
 
-      if (searchResults.results && searchResults.results.length > 0) {
-        let bestMatch = searchResults.results[0];
-        let highestScore = -1;
-        
-        for (const res of searchResults.results) {
+    console.log(`🔍 AGGREGATOR: Starting vast provider search for "${queryToUse}"...`);
+
+    for (const p of providers) {
+      try {
+        const results = await p.instance.search(queryToUse);
+        if (!results.results || results.results.length === 0) continue;
+
+        for (const res of results.results) {
           if (!res.title) continue;
-          
           let score = getSimilarityScore(exactTargetLower, res.title);
           
-          if (queryYear && res.releaseDate && res.releaseDate === queryYear) {
+          if (queryYear && res.releaseDate && parseInt(res.releaseDate) === queryYear) {
             score += 50;
           }
-          
+
           const resTitle = res.title.toLowerCase();
           if (resTitle === exactTargetLower || resTitle.replace(/[^a-z0-9]/g, '') === exactTargetLower.replace(/[^a-z0-9]/g, '')) {
             score += 200;
           }
-          
-          console.log(`[FuzzyMatch] Evaluated "${res.title}" with score: ${score.toFixed(2)}`);
-          
+
           if (score > highestScore) {
             highestScore = score;
             bestMatch = res;
+            winningProvider = p;
           }
         }
-        animeId = bestMatch.id;
-        if (animeId) {
-          PROVIDER_ID_CACHE.set(title, animeId);
-          if (titleEn) PROVIDER_ID_CACHE.set(titleEn, animeId);
-        }
+      } catch (err) {
+        console.warn(`⚠️ Provider ${p.name} search failed:`, err);
       }
     }
 
-    if (animeId) {
-      console.log(`🎬 Target: ID: ${animeId}`);
-      animeInfo = await provider.fetchAnimeInfo(animeId);
-
-      let targetEp = animeInfo?.episodes?.find((e: any) => e.number === epNum);
+    if (bestMatch && winningProvider) {
+      console.log(`🏆 Winner: [${winningProvider.name}] ${bestMatch.title} (ID: ${bestMatch.id}) Score: ${highestScore}`);
       
-      if (!targetEp && animeInfo?.episodes && animeInfo.episodes.length >= epNum) {
-        targetEp = animeInfo.episodes[epNum - 1]; 
-        console.log(`⚠️ Absolute episode number mismatch. Falling back to relative index: AnimePahe Ep ${targetEp.number}`);
+      const animeInfo = await winningProvider.instance.fetchAnimeInfo(bestMatch.id);
+      finalAnimeInfo = animeInfo;
+
+      let targetEp = animeInfo.episodes?.find((e: any) => e.number === epNum);
+      
+      if (!targetEp && animeInfo.episodes && animeInfo.episodes.length >= epNum) {
+        targetEp = animeInfo.episodes[epNum - 1];
       }
 
       if (targetEp) {
-        console.log(`🎬 Fetching sources for ${targetEp.id}...`);
-        const sourcesData = await provider.fetchEpisodeSources(targetEp.id);
+        console.log(`🎬 Fetching sources from ${winningProvider.name} for episode ${epNum}...`);
+        const sourcesData = await winningProvider.instance.fetchEpisodeSources(targetEp.id);
         
         if (sourcesData.sources && sourcesData.sources.length > 0) {
-          let masterUrl = '';
           const resolutions: Record<string, string> = {};
+          let masterUrl = sourcesData.sources[0].url;
 
-          for (const src of sourcesData.sources) {
-            let quality = src.quality || 'default';
-            
-            if (quality.includes('1080p')) quality = '1080p';
-            else if (quality.includes('720p')) quality = '720p';
-            else if (quality.includes('480p')) quality = '480p';
-            else if (quality.includes('360p')) quality = '360p';
-
-            resolutions[quality] = src.url;
-            masterUrl = src.url;
-          }
-
-          if (!masterUrl) masterUrl = resolutions['1080p'] || resolutions['720p'] || resolutions['default'] || sourcesData.sources[0].url;
-          if (!resolutions['1080p']) resolutions['1080p'] = masterUrl;
-          if (!resolutions['720p']) resolutions['720p'] = masterUrl;
-          if (!resolutions['480p']) resolutions['480p'] = masterUrl;
+          sourcesData.sources.forEach((s: any) => {
+            const q = s.quality || 'default';
+            resolutions[q] = s.url;
+            if (q === '1080p' || q.includes('1080')) masterUrl = s.url;
+          });
 
           const forceMp4 = (u: string) => {
             if (u.includes('.m3u8') && u.includes('/stream/')) {
@@ -172,42 +151,41 @@ export async function GET(
             return u;
           };
 
-          masterUrl = forceMp4(masterUrl);
-          for (const key in resolutions) {
-            resolutions[key] = forceMp4(resolutions[key]);
-          }
-
-          console.log(`✅ Success! Extracted AnimePahe Stream: ${masterUrl.substring(0, 60)}...`);
-
           const result = {
-            master: masterUrl,
-            resolutions,
-            type: 'mp4', 
-            referer: "https://kwik.cx/",
+            master: forceMp4(masterUrl),
+            resolutions: Object.fromEntries(Object.entries(resolutions).map(([k, v]) => [k, forceMp4(v)])),
+            type: winningProvider.name === 'animepahe' ? 'mp4' : 'hls',
+            referer: winningProvider.name === 'animepahe' ? "https://kwik.cx/" : (sourcesData.headers?.Referer || ""),
             episodes: animeInfo.episodes,
-            subtitles: sourcesData.subtitles || [],
+            subtitles: sourcesData.subtitles || []
           };
 
-          // Cache the final result
           STREAM_CACHE.set(cacheKey, { data: result, timestamp: now });
-
           return NextResponse.json(result);
         }
       }
     }
-    
-    console.warn(`⚠️ No anime found on AnimePahe`);
-    return NextResponse.json({ error: 'Anime not found' }, { status: 404 });
+
+    // 2. Python Fallback
+    console.log("🐍 Falling back to Python Gogoanime Extractor...");
+    const { execSync } = require('child_process');
+    const pythonResult = execSync(`python backend/stream_extractor.py "${queryToUse}" ${episode} ${id}`).toString();
+    const parsed = JSON.parse(pythonResult);
+
+    if (parsed && parsed.master && !parsed.master.includes('test-streams.mux.dev')) {
+       return NextResponse.json({ ...parsed, episodes: finalAnimeInfo?.episodes || [] });
+    }
+
+    throw new Error("No valid streams found");
 
   } catch (error) {
-    console.error('❌ Stream extraction failed completely:', error);
-    
+    console.error('❌ Aggregator failed:', error);
     const fallback = `https://www.2embed.cc/embed/anime/${id}?ep=${episode}`;
     return NextResponse.json({
       master: fallback,
       resolutions: { "1080p": fallback, "720p": fallback, "480p": fallback },
       type: "iframe",
-      episodes: animeInfo?.episodes
+      episodes: finalAnimeInfo?.episodes || []
     });
   }
 }
