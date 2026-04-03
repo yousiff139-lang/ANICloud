@@ -12,6 +12,7 @@ export interface Anime {
   mal_id: number;
   title: string;
   title_english?: string;
+  year?: number;
   synopsis: string;
   images: {
     webp: {
@@ -174,10 +175,11 @@ export interface StreamData {
 }
 
 // Real streaming URL helper (Queries our Python backend proxy)
-export const getStreamUrl = async (malId: number, epNum: number, title?: string, titleEn?: string): Promise<StreamData> => {
+export const getStreamUrl = async (malId: number, epNum: number, title?: string, titleEn?: string, year?: number): Promise<StreamData> => {
   const queryTitle = title || 'Anime';
+  const yearParam = year ? `&year=${year}` : '';
   try {
-    const res = await fetch(`/api/stream/${malId}/${epNum}?title=${encodeURIComponent(queryTitle)}&titleEn=${encodeURIComponent(titleEn || '')}`, { 
+    const res = await fetch(`/api/stream/${malId}/${epNum}?title=${encodeURIComponent(queryTitle)}&titleEn=${encodeURIComponent(titleEn || '')}${yearParam}`, { 
       cache: 'no-store',
       headers: {
         'Pragma': 'no-cache',

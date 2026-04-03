@@ -10,6 +10,35 @@ const STREAM_CACHE = new Map<string, { data: any, timestamp: number }>();
 const PROVIDER_ID_CACHE = new Map<string, string>(); // title -> providerId
 const CACHE_TTL = 1000 * 60 * 60 * 2; // 2 hours
 
+function levenshteinDistance(a: string, b: string): number {
+  const matrix = [];
+  for (let i = 0; i <= b.length; i++) {
+    matrix[i] = [i];
+  }
+  for (let j = 0; j <= a.length; j++) {
+    matrix[0][j] = j;
+  }
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      if (b.charAt(i - 1) == a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(matrix[i - 1][j - 1] + 1, Math.min(matrix[i][j - 1] + 1, matrix[i - 1][j] + 1));
+      }
+    }
+  }
+  return matrix[b.length][a.length];
+}
+
+function getSimilarityScore(a: string, b: string): number {
+  a = a.toLowerCase();
+  b = b.toLowerCase();
+  const distance = levenshteinDistance(a, b);
+  const maxLength = Math.max(a.length, b.length);
+  if (maxLength === 0) return 100;
+  return ((maxLength - distance) / maxLength) * 100;
+}
+
 export async function GET(
   request: Request,
   context: any
@@ -20,6 +49,8 @@ export async function GET(
   const { searchParams } = new URL(request.url);
   const title = searchParams.get('title') || 'Anime';
   const titleEn = searchParams.get('titleEn');
+  const yearParam = searchParams.get('year');
+  const queryYear = yearParam ? parseInt(yearParam) : undefined;
 
   const cacheKey = `${id}-${episode}`;
   const now = Date.now();
@@ -67,13 +98,27 @@ export async function GET(
 
       if (searchResults.results && searchResults.results.length > 0) {
         let bestMatch = searchResults.results[0];
+        let highestScore = -1;
         
         for (const res of searchResults.results) {
           if (!res.title) continue;
+          
+          let score = getSimilarityScore(exactTargetLower, res.title);
+          
+          if (queryYear && res.releaseDate && res.releaseDate === queryYear) {
+            score += 50;
+          }
+          
           const resTitle = res.title.toLowerCase();
           if (resTitle === exactTargetLower || resTitle.replace(/[^a-z0-9]/g, '') === exactTargetLower.replace(/[^a-z0-9]/g, '')) {
+            score += 200;
+          }
+          
+          console.log(`[FuzzyMatch] Evaluated "${res.title}" with score: ${score.toFixed(2)}`);
+          
+          if (score > highestScore) {
+            highestScore = score;
             bestMatch = res;
-            break;
           }
         }
         animeId = bestMatch.id;

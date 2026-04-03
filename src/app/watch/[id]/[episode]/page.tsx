@@ -53,7 +53,7 @@ export default function WatchEpisode() {
 
           // Phase 2: Fetch heavy stream data in background while user is likely on the Ad screen
           const [stream, skipRes] = await Promise.all([
-            getStreamUrl(Number(id), epNum, animeData.title, animeData.title_english),
+            getStreamUrl(Number(id), epNum, animeData.title, animeData.title_english, animeData.year),
             fetch(`https://api.aniskip.com/v2/skip-times/${id}/${epNum}?types[]=op&types[]=ed&episodeLength=0`)
               .then(r => r.json())
               .catch(() => ({ results: [] }))

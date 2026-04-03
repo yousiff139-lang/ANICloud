@@ -32,7 +32,7 @@ export default function AnimeDetail() {
       setAnime(animeData);
 
       // Fetch stream for episode 1 just to passively grab the FULL, unpaginated complete episode array from AnimePahe
-      const stream = await getStreamUrl(Number(id), 1, animeData?.title, animeData?.title_english);
+      const stream = await getStreamUrl(Number(id), 1, animeData?.title, animeData?.title_english, animeData?.year);
       if (stream && stream.episodes && stream.episodes.length > 0) {
         setEpisodes(stream.episodes);
       } else {
