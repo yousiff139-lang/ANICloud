@@ -49,27 +49,29 @@ export async function GET(
     if (!animeId) {
       let searchResults: any = { results: [] };
       let usedTitle = '';
+      let exactTargetLower = '';
 
       if (titleEn && titleEn !== 'undefined') {
-        usedTitle = titleEn.replace(/\(TV\)/g, '').replace(/Part \d+/ig, '').trim();
+        usedTitle = titleEn.replace(/\(TV\)/g, '').trim();
+        exactTargetLower = usedTitle.toLowerCase();
         console.log(`🎬 Searching AnimePahe (PRIMARY_EN) for "${usedTitle}"...`);
         searchResults = await provider.search(usedTitle);
       }
 
       if (!searchResults.results || searchResults.results.length === 0) {
-        usedTitle = title.replace(/\(TV\)/g, '').replace(/Part \d+/ig, '').trim();
+        usedTitle = title.replace(/\(TV\)/g, '').trim();
+        exactTargetLower = usedTitle.toLowerCase();
         console.log(`🎬 Searching AnimePahe (FALLBACK_ROMAJI) for "${usedTitle}"...`);
         searchResults = await provider.search(usedTitle);
       }
 
       if (searchResults.results && searchResults.results.length > 0) {
         let bestMatch = searchResults.results[0];
-        const targetLower = usedTitle.toLowerCase();
         
         for (const res of searchResults.results) {
           if (!res.title) continue;
           const resTitle = res.title.toLowerCase();
-          if (resTitle === targetLower || resTitle.replace(/[^a-z0-9]/g, '') === targetLower.replace(/[^a-z0-9]/g, '')) {
+          if (resTitle === exactTargetLower || resTitle.replace(/[^a-z0-9]/g, '') === exactTargetLower.replace(/[^a-z0-9]/g, '')) {
             bestMatch = res;
             break;
           }
