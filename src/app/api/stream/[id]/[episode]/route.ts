@@ -1,14 +1,37 @@
 import { NextResponse } from 'next/server';
 import { ANIME } from '@consumet/extensions';
+import fs from 'fs';
+import path from 'path';
+import { getSimilarityScore } from '@/lib/match';
 
 export const dynamic = 'force-dynamic';
 
-// Simple in-memory cache to prevent redundant searches and waterfalls
-const STREAM_CACHE = new Map<string, { data: any, timestamp: number }>();
-const PROVIDER_ID_CACHE = new Map<string, string>(); // title -> providerId
-const CACHE_TTL = 1000 * 60 * 60 * 2; // 2 hours
+const MAPPING_FILE = path.join(process.cwd(), 'data', 'provider_mapping.json');
 
-import { levenshteinDistance, getSimilarityScore } from '@/lib/match';
+// Memory Cache for active session
+const STREAM_CACHE = new Map<string, { data: any, timestamp: number }>();
+const CACHE_TTL = 1000 * 60 * 60 * 4; // 4 hours for stable streams
+
+function getStoredMapping() {
+  try {
+    if (fs.existsSync(MAPPING_FILE)) {
+      return JSON.parse(fs.readFileSync(MAPPING_FILE, 'utf8'));
+    }
+  } catch (e) {
+    console.error("[StreamAPI] Error reading mapping file:", e);
+  }
+  return {};
+}
+
+function saveMapping(malId: string, mapping: any) {
+  try {
+    const fullMapping = getStoredMapping();
+    fullMapping[malId] = { ...fullMapping[malId], ...mapping };
+    fs.writeFileSync(MAPPING_FILE, JSON.stringify(fullMapping, null, 2));
+  } catch (e) {
+    console.error("[StreamAPI] Error writing mapping file:", e);
+  }
+}
 
 export async function GET(
   request: Request,
@@ -20,160 +43,136 @@ export async function GET(
   const { searchParams } = new URL(request.url);
   const title = searchParams.get('title') || 'Anime';
   const titleEn = searchParams.get('titleEn');
-  const yearParam = searchParams.get('year');
-  const queryYear = yearParam ? parseInt(yearParam) : undefined;
+  const queryYear = searchParams.get('year') ? parseInt(searchParams.get('year')!) : undefined;
 
   const cacheKey = `${id}-${episode}`;
   const now = Date.now();
 
-  // Check cache first
+  // 1. Session Cache Check
   const cached = STREAM_CACHE.get(cacheKey);
   if (cached && (now - cached.timestamp < CACHE_TTL)) {
-    console.log(`🚀 Cache Hit: MAL_ID=${id}, EP=${episode}`);
+    console.log(`🚀 Instant Cache Hit: MAL_ID=${id}, EP=${episode}`);
     return NextResponse.json(cached.data);
   }
 
-  console.log(`📡 Stream Request: MAL_ID=${id}, EP=${episode}, Title=${title}, TitleEn=${titleEn}, Year=${queryYear}`);
+  console.log(`📡 Stable Stream Request: MAL_ID=${id}, EP=${episode}, Title=${title}`);
 
   if (!id || id === 'undefined' || !episode || episode === 'undefined') {
     return NextResponse.json({ error: 'Missing ID or Episode' }, { status: 400 });
   }
 
-  let finalAnimeInfo: any = null;
   const epNum = parseInt(episode);
+  const mapping = getStoredMapping()[id] || {};
+  let finalResult: any = null;
 
   try {
-    const providers = [
-      { name: 'hianime', instance: new ANIME.Hianime() },
-      { name: 'animepahe', instance: new ANIME.AnimePahe() }
-    ];
-    (providers[1].instance as any).baseUrl = "https://animepahe.com";
+    const hianime = new ANIME.Hianime();
+    const animepahe = new ANIME.AnimePahe();
+    (animepahe as any).baseUrl = "https://animepahe.com";
 
-    const searchQueries = [title];
-    if (titleEn && titleEn !== 'undefined') searchQueries.unshift(titleEn);
-    
-    // Add shortened variants
-    const shortTitle = title.split(' ').slice(0, 3).join(' ');
-    if (!searchQueries.includes(shortTitle)) searchQueries.push(shortTitle);
-    if (titleEn) {
-      const shortTitleEn = titleEn.split(' ').slice(0, 3).join(' ');
-      if (!searchQueries.includes(shortTitleEn)) searchQueries.push(shortTitleEn);
-    }
-
-    // 1. Matching Engineering: Resolve the best provider ID across all sources
-    let bestMatch: any = null;
-    let highestScore = -1;
-    let winningProvider: any = null;
-    let queryToUse = searchQueries[0].replace(/\(TV\)/g, '').trim();
-
-    console.log(`🔍 AGGREGATOR: Starting vast provider search...`);
-
-    for (const searchQuery of searchQueries) {
-      queryToUse = searchQuery.replace(/\(TV\)/g, '').trim();
-      const exactTargetLower = queryToUse.toLowerCase();
-
-      for (const p of providers) {
+    // 2. STABILITY Step: Use Pre-Resolved IDs if available (No Search Lag)
+    if (mapping.hianimeId || mapping.animepaheId) {
+      console.log(`✅ IDs Resolved from Mapping: Hia=${mapping.hianimeId}, Pahe=${mapping.animepaheId}`);
+      
+      const fetchAttempt = async (provider: any, providerId: string, name: string) => {
         try {
-          const results = await p.instance.search(queryToUse);
-          if (!results.results || results.results.length === 0) continue;
-
-          for (const res of results.results) {
-            if (!res.title) continue;
-            const resTitleStr = typeof res.title === 'string' ? res.title : (res.title as any).romaji || (res.title as any).english || res.title.toString();
-            let score = getSimilarityScore(exactTargetLower, resTitleStr);
-            
-            if (queryYear && res.releaseDate && parseInt(res.releaseDate) === queryYear) {
-              score += 50;
-            }
-
-            const resTitleLower = resTitleStr.toLowerCase();
-            if (resTitleLower === exactTargetLower || resTitleLower.replace(/[^a-z0-9]/g, '') === exactTargetLower.replace(/[^a-z0-9]/g, '')) {
-              score += 200;
-            }
-
-            if (score > highestScore) {
-              highestScore = score;
-              bestMatch = res;
-              winningProvider = p;
-            }
+          if (!providerId) return null;
+          const info = await provider.fetchAnimeInfo(providerId);
+          const targetEp = info.episodes?.find((e: any) => e.number === epNum) || info.episodes?.[epNum - 1];
+          if (!targetEp) return null;
+          
+          const sources = await provider.fetchEpisodeSources(targetEp.id);
+          if (sources.sources?.length > 0) {
+            return {
+              master: sources.sources[0].url.replace('/stream/', '/mp4/'),
+              type: name === 'animepahe' ? 'mp4' : 'hls',
+              referer: name === 'animepahe' ? "https://kwik.cx/" : (sources.headers?.Referer || ""),
+              episodes: info.episodes
+            };
           }
-        } catch (err) {
-          console.warn(`⚠️ Provider ${p.name} search failed for "${queryToUse}":`, err);
+        } catch (e) { return null; }
+      };
+
+      // Faster Parallel Attempt
+      const results = await Promise.all([
+        fetchAttempt(hianime, mapping.hianimeId, 'hianime'),
+        fetchAttempt(animepahe, mapping.animepaheId, 'animepahe')
+      ]);
+      finalResult = results.find(r => r !== null);
+    }
+
+    // 3. Fallback/Search Step: If mapping missing or direct fetch failed
+    if (!finalResult) {
+      console.log(`🔍 Mapping missing/failed. Identifying stability IDs for "${title}"...`);
+      const searchQueries = [title, titleEn].filter(Boolean) as string[];
+      
+      const findBestId = async (provider: any, queries: string[]) => {
+        for (const q of queries) {
+          try {
+            const results = await provider.search(q);
+            const best = results.results?.find((res: any) => getSimilarityScore(title, res.title.toString()) > 75);
+            if (best) return best.id;
+          } catch (e) {}
         }
-      }
-      
-      // If we found a very strong match (>220), we can stop searching further queries
-      if (highestScore > 220) break;
-    }
+        return null;
+      };
 
-    if (bestMatch && winningProvider) {
-      console.log(`🏆 Winner: [${winningProvider.name}] ${bestMatch.title} (ID: ${bestMatch.id}) Score: ${highestScore}`);
-      
-      const animeInfo = await winningProvider.instance.fetchAnimeInfo(bestMatch.id);
-      finalAnimeInfo = animeInfo;
+      const [hId, pId] = await Promise.all([
+        mapping.hianimeId ? Promise.resolve(mapping.hianimeId) : findBestId(hianime, searchQueries),
+        mapping.animepaheId ? Promise.resolve(mapping.animepaheId) : findBestId(animepahe, searchQueries)
+      ]);
 
-      let targetEp = animeInfo.episodes?.find((e: any) => e.number === epNum);
-      
-      if (!targetEp && animeInfo.episodes && animeInfo.episodes.length >= epNum) {
-        targetEp = animeInfo.episodes[epNum - 1];
-      }
-
-      if (targetEp) {
-        console.log(`🎬 Fetching sources from ${winningProvider.name} for episode ${epNum}...`);
-        const sourcesData = await winningProvider.instance.fetchEpisodeSources(targetEp.id);
-        
-        if (sourcesData.sources && sourcesData.sources.length > 0) {
-          const resolutions: Record<string, string> = {};
-          let masterUrl = sourcesData.sources[0].url;
-
-          sourcesData.sources.forEach((s: any) => {
-            const q = s.quality || 'default';
-            resolutions[q] = s.url;
-            if (q === '1080p' || q.includes('1080')) masterUrl = s.url;
-          });
-
-          const forceMp4 = (u: string) => {
-            if (u.includes('.m3u8') && u.includes('/stream/')) {
-              return u.replace('/stream/', '/mp4/').replace(/\/uwu\.m3u8.*/, '');
-            }
-            return u;
-          };
-
-          const result = {
-            master: forceMp4(masterUrl),
-            resolutions: Object.fromEntries(Object.entries(resolutions).map(([k, v]) => [k, forceMp4(v)])),
-            type: winningProvider.name === 'animepahe' ? 'mp4' : 'hls',
-            referer: winningProvider.name === 'animepahe' ? "https://kwik.cx/" : (sourcesData.headers?.Referer || ""),
-            episodes: animeInfo.episodes,
-            subtitles: sourcesData.subtitles || []
-          };
-
-          STREAM_CACHE.set(cacheKey, { data: result, timestamp: now });
-          return NextResponse.json(result);
-        }
+      if (hId || pId) {
+        saveMapping(id, { hianimeId: hId, animepaheId: pId });
+        // Recurse once with new IDs for zero-lag next request
+        const retryResults = await Promise.all([
+          hId ? fetchAttemptSilently(hianime, hId, 'hianime', epNum) : Promise.resolve(null),
+          pId ? fetchAttemptSilently(animepahe, pId, 'animepahe', epNum) : Promise.resolve(null)
+        ]);
+        finalResult = retryResults.find(r => r !== null);
       }
     }
 
-    // 2. Python Fallback
-    console.log("🐍 Falling back to Python Gogoanime Extractor...");
-    const { execSync } = require('child_process');
-    const pythonResult = execSync(`python backend/stream_extractor.py "${queryToUse}" ${episode} ${id}`).toString();
-    const parsed = JSON.parse(pythonResult);
-
-    if (parsed && parsed.master && !parsed.master.includes('test-streams.mux.dev')) {
-       return NextResponse.json({ ...parsed, episodes: finalAnimeInfo?.episodes || [] });
+    // 4. ULTIMATE Stability: Python Gogoanime Fallback
+    if (!finalResult) {
+      console.log("🐍 Fallback: Invoking Stable Python GogoSource...");
+      const { execSync } = require('child_process');
+      const pythonRes = execSync(`python backend/stream_extractor.py "${title}" ${episode} ${id}`).toString();
+      finalResult = JSON.parse(pythonRes);
     }
 
-    throw new Error("No valid streams found");
+    if (finalResult && finalResult.master) {
+      STREAM_CACHE.set(cacheKey, { data: finalResult, timestamp: now });
+      return NextResponse.json(finalResult);
+    }
 
-  } catch (error) {
-    console.error('❌ Aggregator failed:', error);
+    throw new Error("Aggregator Stability Failure");
+
+  } catch (error: any) {
+    console.error('❌ Stream Stabilization Failed:', error.message);
     const fallback = `https://www.2embed.cc/embed/anime/${id}?ep=${episode}`;
     return NextResponse.json({
       master: fallback,
-      resolutions: { "1080p": fallback, "720p": fallback, "480p": fallback },
       type: "iframe",
-      episodes: finalAnimeInfo?.episodes || []
+      resolutions: { "1080p": fallback }
     });
   }
+}
+
+async function fetchAttemptSilently(provider: any, providerId: string, name: string, epNum: number) {
+  try {
+    const info = await provider.fetchAnimeInfo(providerId);
+    const targetEp = info.episodes?.find((e: any) => e.number === epNum) || info.episodes?.[epNum - 1];
+    if (!targetEp) return null;
+    const sources = await provider.fetchEpisodeSources(targetEp.id);
+    if (sources.sources?.length > 0) {
+      return {
+        master: sources.sources[0].url.replace('/stream/', '/mp4/'),
+        type: name === 'animepahe' ? 'mp4' : 'hls',
+        referer: name === 'animepahe' ? "https://kwik.cx/" : (sources.headers?.Referer || ""),
+        episodes: info.episodes
+      };
+    }
+  } catch (e) {}
+  return null;
 }
