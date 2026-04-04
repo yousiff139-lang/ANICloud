@@ -5,9 +5,10 @@ import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Loader2, ChevronRight } from 'lucide-react';
 import axios from 'axios';
+import { getTrendingAnime, getPopularAllTime, getAnimeSeries, getNewReleases, getAnimeMovies } from '@/lib/api';
 
 export default function ExplorePage() {
-  const { category } = useParams();
+  const { category } = useParams() as any;
   const router = useRouter();
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -16,10 +17,47 @@ export default function ExplorePage() {
     const fetchCategory = async () => {
       setLoading(true);
       try {
-        const res = await axios.get('/api/anime');
-        setItems(res.data[category as string] || []);
+        let data: any[] = [];
+        
+        // Step 1: Attempt Live Fetch for real-time accuracy
+        console.log(`📡 Explore: Fetching live data for category: ${category}`);
+        switch (category) {
+          case 'new_releases':
+            data = await getNewReleases();
+            break;
+          case 'trending':
+          case 'popular_all_time':
+            data = await getPopularAllTime();
+            break;
+          case 'anime_series':
+            data = await getAnimeSeries();
+            break;
+          case 'anime_movies':
+            data = await getAnimeMovies();
+            break;
+          default:
+            // Fallback to local API if category is unknown or custom
+            const res = await axios.get('/api/anime');
+            data = res.data[category as string] || [];
+        }
+
+        // Step 2: Fallback to local database if live fetch returned empty (Rate limit or API down)
+        if (data.length === 0) {
+          console.warn(`⚠️ Live fetch empty for ${category}, falling back to local database...`);
+          const res = await axios.get('/api/anime');
+          data = res.data[category as string] || [];
+        }
+
+        setItems(data);
       } catch (e) {
-        console.error(e);
+        console.error("Explore Fetch Error:", e);
+        // Step 3: Ultimate fallback
+        try {
+          const res = await axios.get('/api/anime');
+          setItems(res.data[category as string] || []);
+        } catch (innerErr) {
+          console.error("Local Fallback Failed:", innerErr);
+        }
       }
       setLoading(false);
     };
