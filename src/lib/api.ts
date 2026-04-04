@@ -39,45 +39,45 @@ const removeDuplicates = (animes: Anime[]): Anime[] => {
   });
 };
 
-export const getTrendingAnime = async (): Promise<Anime[]> => {
+export const getTrendingAnime = async (page: number = 1): Promise<Anime[]> => {
   try {
-    const response = await api.get(`${JIKAN_BASE_URL}/top/anime?filter=airing&limit=10`);
+    const response = await api.get(`${JIKAN_BASE_URL}/top/anime?filter=airing&limit=24&page=${page}`);
     return removeDuplicates(response.data.data);
   } catch (error) {
     return [];
   }
 };
 
-export const getAnimeSeries = async (): Promise<Anime[]> => {
+export const getAnimeSeries = async (page: number = 1): Promise<Anime[]> => {
   try {
-    const response = await api.get(`${JIKAN_BASE_URL}/top/anime?type=tv&limit=15`);
+    const response = await api.get(`${JIKAN_BASE_URL}/top/anime?type=tv&limit=24&page=${page}`);
     return removeDuplicates(response.data.data);
   } catch (error) {
     return [];
   }
 };
 
-export const getPopularAllTime = async (): Promise<Anime[]> => {
+export const getPopularAllTime = async (page: number = 1): Promise<Anime[]> => {
   try {
-    const response = await api.get(`${JIKAN_BASE_URL}/top/anime?filter=bypopularity&limit=15`);
+    const response = await api.get(`${JIKAN_BASE_URL}/top/anime?filter=bypopularity&limit=24&page=${page}`);
     return removeDuplicates(response.data.data);
   } catch (error) {
     return [];
   }
 };
 
-export const getAnimeMovies = async (): Promise<Anime[]> => {
+export const getAnimeMovies = async (page: number = 1): Promise<Anime[]> => {
   try {
-    const response = await api.get(`${JIKAN_BASE_URL}/top/anime?type=movie&limit=15`);
+    const response = await api.get(`${JIKAN_BASE_URL}/top/anime?type=movie&limit=24&page=${page}`);
     return removeDuplicates(response.data.data);
   } catch (error) {
     return [];
   }
 };
 
-export const getNewReleases = async (): Promise<Anime[]> => {
+export const getNewReleases = async (page: number = 1): Promise<Anime[]> => {
   try {
-    const response = await api.get(`${JIKAN_BASE_URL}/seasons/now?limit=15`);
+    const response = await api.get(`${JIKAN_BASE_URL}/seasons/now?limit=24&page=${page}`);
     return removeDuplicates(response.data.data);
   } catch (error) {
     return [];

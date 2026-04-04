@@ -21,18 +21,24 @@ export default function Home() {
   // Data Fetching
   useEffect(() => {
     // Fetch Trending and New Releases for Hero immediately, merge them, and unlock UI fast
-    Promise.all([getTrendingAnime(), getNewReleases()]).then(([trendingData, newReleasesData]) => {
+    Promise.all([
+      getTrendingAnime(1), 
+      getNewReleases(1)
+    ]).then(([trendingData, newReleasesData]) => {
+      // Hero section logic
       const combined = [...trendingData, ...newReleasesData];
       const uniqueHeroData = Array.from(new Map(combined.map(item => [item.mal_id, item])).values());
-      setTrending(uniqueHeroData);
+      setTrending(uniqueHeroData.slice(0, 10)); // Keep hero focused
+      
+      // Homepage Rows - Now multiple rows (up to 24 items each)
       setNewReleases(newReleasesData);
       setLoading(false);
     });
 
-    // Fetch others in background independently
-    getAnimeSeries().then(setAnimeSeries);
-    getPopularAllTime().then(setPopularAllTime);
-    getAnimeMovies().then(setAnimeMovies);
+    // Fetch others in background independently - providing much more content
+    getAnimeSeries(1).then(setAnimeSeries);
+    getPopularAllTime(1).then(setPopularAllTime);
+    getAnimeMovies(1).then(setAnimeMovies);
   }, []);
 
   // Hero Section Cycling
