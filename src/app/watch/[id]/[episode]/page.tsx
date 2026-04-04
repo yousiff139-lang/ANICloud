@@ -13,7 +13,7 @@ type StreamData = any;
 
 export default function WatchEpisode() {
   const { data: session, status } = useSession();
-  const { id, episode } = useParams();
+  const { id, episode } = useParams() as any;
   const router = useRouter();
   const [anime, setAnime] = useState<Anime | null>(null);
   const [episodes, setEpisodes] = useState<any[]>([]);

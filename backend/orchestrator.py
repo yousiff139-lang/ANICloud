@@ -29,11 +29,6 @@ def run_maintenance_cycle():
     print("Step 2: Recasting official trailers...")
     subprocess.run(['python', 'backend/trailer_sync.py'])
     
-    # 3. Autonomous Health Bot Manual Scan
-    print("Step 3: Performing global link scrubbing...")
-    # This triggers the health bot for a manual scan
-    subprocess.run(['python', 'backend/link_status_bot.py', '--once'])
-    
     print("--- 🌕 Maintenance Cycle Complete ---\n")
     schedule_next_maintenance()
 

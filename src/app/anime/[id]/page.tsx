@@ -12,7 +12,7 @@ import WatchPartyButton from '@/components/WatchPartyButton';
 import { AnimeJsonLd, BreadcrumbJsonLd } from '@/components/JsonLd';
 
 export default function AnimeDetail() {
-  const { id } = useParams();
+  const { id } = useParams() as any;
   const router = useRouter();
   const [anime, setAnime] = useState<Anime | null>(null);
   const [episodes, setEpisodes] = useState<any[]>([]);
