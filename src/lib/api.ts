@@ -84,6 +84,32 @@ export const getNewReleases = async (page: number = 1): Promise<Anime[]> => {
   }
 };
 
+export const getLastSeasonAnime = async (page: number = 1): Promise<Anime[]> => {
+  try {
+    const now = new Date();
+    const month = now.getMonth(); // 0-indexed
+    let year = now.getFullYear();
+    let season: 'winter' | 'spring' | 'summer' | 'fall';
+
+    // Winter: 0,1,2 | Spring: 3,4,5 | Summer: 6,7,8 | Fall: 9,10,11
+    if (month >= 0 && month <= 2) {
+      season = 'fall';
+      year -= 1;
+    } else if (month >= 3 && month <= 5) {
+      season = 'winter';
+    } else if (month >= 6 && month <= 8) {
+      season = 'spring';
+    } else {
+      season = 'summer';
+    }
+
+    const response = await api.get(`${JIKAN_BASE_URL}/seasons/${year}/${season}?limit=24&page=${page}`);
+    return removeDuplicates(response.data.data);
+  } catch (error) {
+    return [];
+  }
+};
+
 export interface SearchOptions {
   q?: string;
   genres?: string;

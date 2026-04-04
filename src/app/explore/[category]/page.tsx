@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Loader2, ChevronRight } from 'lucide-react';
 import axios from 'axios';
-import { getTrendingAnime, getPopularAllTime, getAnimeSeries, getNewReleases, getAnimeMovies, Anime } from '@/lib/api';
+import { getTrendingAnime, getPopularAllTime, getAnimeSeries, getNewReleases, getAnimeMovies, getLastSeasonAnime, Anime } from '@/lib/api';
 
 export default function ExplorePage() {
   const { category } = useParams() as any;
@@ -27,7 +27,15 @@ export default function ExplorePage() {
       console.log(`📡 Explore: Fetching live data for category: ${category}, Page: ${targetPage}`);
       switch (category) {
         case 'new_releases':
-          data = await getNewReleases(targetPage);
+          if (targetPage === 1) {
+            const [currentSeason, lastSeason] = await Promise.all([
+              getNewReleases(1),
+              getLastSeasonAnime(1)
+            ]);
+            data = [...currentSeason, ...lastSeason];
+          } else {
+            data = await getNewReleases(targetPage);
+          }
           break;
         case 'trending':
         case 'popular_all_time':
