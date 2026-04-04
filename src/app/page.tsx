@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Info, ChevronRight, Loader2 } from 'lucide-react';
-import { getTrendingAnime, getPopularAllTime, getAnimeSeries, getNewReleases, getAnimeMovies, Anime } from '@/lib/api';
+import { getTrendingAnime, getPopularAllTime, getAnimeSeries, getNewReleases, getLastSeasonAnime, getAnimeMovies, Anime } from '@/lib/api';
 import NebulaPlayer from '@/components/NebulaPlayer';
 
 export default function Home() {
@@ -23,15 +23,19 @@ export default function Home() {
     // Fetch Trending and New Releases for Hero immediately, merge them, and unlock UI fast
     Promise.all([
       getTrendingAnime(1), 
-      getNewReleases(1)
-    ]).then(([trendingData, newReleasesData]) => {
+      getNewReleases(1),
+      getLastSeasonAnime(1)
+    ]).then(([trendingData, newReleasesData, lastSeasonData]) => {
       // Hero section logic
-      const combined = [...trendingData, ...newReleasesData];
-      const uniqueHeroData = Array.from(new Map(combined.map(item => [item.mal_id, item])).values());
+      const combinedHero = [...trendingData, ...newReleasesData];
+      const uniqueHeroData = Array.from(new Map(combinedHero.map(item => [item.mal_id, item])).values());
       setTrending(uniqueHeroData.slice(0, 10)); // Keep hero focused
       
-      // Homepage Rows - Now multiple rows (up to 24 items each)
-      setNewReleases(newReleasesData);
+      // Homepage Rows - Now merged with last season for maximum discovery
+      const combinedNew = [...newReleasesData, ...lastSeasonData];
+      const uniqueNewReleases = Array.from(new Map(combinedNew.map(item => [item.mal_id, item])).values());
+      setNewReleases(uniqueNewReleases.slice(0, 24)); 
+      
       setLoading(false);
     });
 
