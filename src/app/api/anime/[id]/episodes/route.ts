@@ -156,34 +156,49 @@ export async function GET(
     let providerEpisodes: any[] = [];
     
     try {
-      const hianime = new ANIME.Hianime();
-      const searchQueries = [title, titleEn].filter(Boolean) as string[];
-      
+      // Test multiple providers to bypass failures (Hianime is currently missing One Piece)
+      const providerClasses = [ANIME.Hianime, ANIME.AnimeKai, ANIME.AnimeUnity];
       let bestMatch: any = null;
       let highestScore = -1;
+      let activeProvider: any = null;
 
-      for (const query of searchQueries) {
-        const results = await hianime.search(query);
-        if (!results.results) continue;
+      for (const ProviderClass of providerClasses) {
+        if (providerEpisodes.length > 0) break; // Break if we already successfully pulled episodes from another provider
 
-        for (const res of results.results) {
-          let score = getSimilarityScore(title, res.title.toString());
-          if (queryYear && res.releaseDate && parseInt(res.releaseDate) === queryYear) score += 50;
+        try {
+          const provider = new ProviderClass();
+          const searchQueries = [title, titleEn].filter(Boolean) as string[];
           
-          if (score > highestScore) {
-            highestScore = score;
-            bestMatch = res;
-          }
-        }
-        if (highestScore > 150) break;
-      }
+          bestMatch = null; // reset for this provider
+          highestScore = -1;
 
-      if (bestMatch && highestScore > 70) {
-        console.log(`[EpisodeAggregator] Found provider match: ${bestMatch.title} (Score: ${highestScore})`);
-        const animeInfo = await hianime.fetchAnimeInfo(bestMatch.id);
-        providerEpisodes = animeInfo.episodes || [];
+          for (const query of searchQueries) {
+            const results = await provider.search(query);
+            if (!results.results) continue;
+
+            for (const res of results.results) {
+              let score = getSimilarityScore(title, res.title.toString());
+              if (queryYear && res.releaseDate && parseInt(res.releaseDate) === queryYear) score += 50;
+              
+              if (score > highestScore) {
+                highestScore = score;
+                bestMatch = res;
+                activeProvider = provider;
+              }
+            }
+            if (highestScore > 150) break;
+          }
+
+          if (bestMatch && highestScore > 70) {
+            console.log(`[EpisodeAggregator] Found match on ${provider.name || 'Provider'}: ${bestMatch.title} (Score: ${highestScore})`);
+            const animeInfo = await activeProvider.fetchAnimeInfo(bestMatch.id);
+            providerEpisodes = animeInfo.episodes || [];
+          }
+        } catch (providerErr) {
+          console.warn(`[EpisodeAggregator] Provider loop caught error for ${ProviderClass.name}, trying next...`);
+        }
       }
-    } catch (providerErr) {
+    } catch (globalErr) {
       console.warn('[EpisodeAggregator] Provider fetch failed, continuing with Jikan data only');
     }
 
