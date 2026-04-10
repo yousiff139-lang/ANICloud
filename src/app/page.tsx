@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Info, ChevronRight, Loader2 } from 'lucide-react';
-import { getTrendingAnime, getPopularAllTime, getAnimeSeries, getNewReleases, getLastSeasonAnime, getAnimeMovies, Anime } from '@/lib/api';
+import { getCatalog, getTrendingAnime, getNewReleases, getLastSeasonAnime, getAnimeSeries, getPopularAllTime, getAnimeMovies, Anime } from '@/lib/api';
 import NebulaPlayer from '@/components/NebulaPlayer';
 
 export default function Home() {
@@ -18,31 +18,67 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [showPlayer, setShowPlayer] = useState(false);
   
-  // Data Fetching
+  // Data Fetching — Primary: local cache from daily_sync.py, Fallback: Jikan API
   useEffect(() => {
-    // Fetch Trending and New Releases for Hero immediately, merge them, and unlock UI fast
-    Promise.all([
-      getTrendingAnime(1), 
-      getNewReleases(1),
-      getLastSeasonAnime(1)
-    ]).then(([trendingData, newReleasesData, lastSeasonData]) => {
-      // Hero section logic
-      const combinedHero = [...trendingData, ...newReleasesData];
-      const uniqueHeroData = Array.from(new Map(combinedHero.map(item => [item.mal_id, item])).values());
-      setTrending(uniqueHeroData.slice(0, 10)); // Keep hero focused
-      
-      // Homepage Rows - Now merged with last season for maximum discovery
-      const combinedNew = [...newReleasesData, ...lastSeasonData];
-      const uniqueNewReleases = Array.from(new Map(combinedNew.map(item => [item.mal_id, item])).values());
-      setNewReleases(uniqueNewReleases.slice(0, 24)); 
-      
-      setLoading(false);
-    });
+    const loadData = async () => {
+      try {
+        // 1. Try the local cached catalog first (populated by daily_sync.py)
+        const catalog = await getCatalog();
 
-    // Fetch others in background independently - providing much more content
-    getAnimeSeries(1).then(setAnimeSeries);
-    getPopularAllTime(1).then(setPopularAllTime);
-    getAnimeMovies(1).then(setAnimeMovies);
+        const hasCachedData = catalog.source !== 'fallback' && catalog.source !== 'error' && (
+          catalog.trending.length > 0 || catalog.new_releases.length > 0
+        );
+
+        if (hasCachedData) {
+          console.log('[Home] Using cached catalog data (last updated:', catalog.last_updated, ')');
+
+          // Hero: combine trending + new releases for maximum variety
+          const combinedHero = [...catalog.trending, ...catalog.new_releases];
+          const uniqueHero = Array.from(new Map(combinedHero.map(item => [item.mal_id, item])).values());
+          setTrending(uniqueHero.slice(0, 10));
+
+          // Category rows
+          setNewReleases(catalog.new_releases.slice(0, 24));
+          setAnimeSeries(catalog.anime_series.slice(0, 24));
+          setPopularAllTime(catalog.popular_all_time.slice(0, 24));
+          setAnimeMovies(catalog.anime_movies.slice(0, 24));
+          setLoading(false);
+          return;
+        }
+
+        // 2. Fallback: Direct Jikan API calls (cache is empty or unavailable)
+        console.log('[Home] Cache unavailable, falling back to Jikan API');
+        
+        const [trendingData, newReleasesData, lastSeasonData] = await Promise.all([
+          getTrendingAnime(1), 
+          getNewReleases(1),
+          getLastSeasonAnime(1)
+        ]);
+
+        // Hero section
+        const combinedHero = [...trendingData, ...newReleasesData];
+        const uniqueHeroData = Array.from(new Map(combinedHero.map(item => [item.mal_id, item])).values());
+        setTrending(uniqueHeroData.slice(0, 10));
+        
+        // New releases row — merge with last season for discovery
+        const combinedNew = [...newReleasesData, ...lastSeasonData];
+        const uniqueNewReleases = Array.from(new Map(combinedNew.map(item => [item.mal_id, item])).values());
+        setNewReleases(uniqueNewReleases.slice(0, 24)); 
+        
+        setLoading(false);
+
+        // Fetch remaining categories in background
+        getAnimeSeries(1).then(setAnimeSeries);
+        getPopularAllTime(1).then(setPopularAllTime);
+        getAnimeMovies(1).then(setAnimeMovies);
+
+      } catch (err) {
+        console.error('[Home] Data load error:', err);
+        setLoading(false);
+      }
+    };
+
+    loadData();
   }, []);
 
   // Hero Section Cycling

@@ -1,72 +1,54 @@
+"""
+ANICloud Production Orchestrator v2.0
+=====================================
+Entry point for all ANICloud background automation.
+Runs the daily sync engine on a clean 24-hour cycle.
+"""
+
 import os
-import json
+import sys
 import time
+import subprocess
 import threading
 from datetime import datetime, timedelta
-import pytz
-import subprocess
-from ingestion import run_ingestion
 
-# Configuration
-LISTENING_PORT = 3000
-DATA_DIR = "data"
-IST = pytz.timezone('Asia/Kolkata')
+# Add backend to path so we can import daily_sync
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__))))
 
-def run_maintenance_cycle():
-    """
-    Comprehensive nightly maintenance: Ingestion, Metadata Sync, and Link Scrubbing.
-    """
-    print(f"\n--- 🌑 {datetime.now(IST)} Nightly Maintenance Triggered ---")
-    
-    # 1. Update Anime Catalog (Daily Update Cycle)
-    print("Step 1: Synchronizing Catalog with Jikan API...")
+from daily_sync import run_full_sync, CYCLE_INTERVAL_HOURS
+
+def run_link_health_bot():
+    """Start background link health monitoring (non-blocking)."""
     try:
-        run_ingestion()
+        bot_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'link_status_bot.py')
+        if os.path.exists(bot_path):
+            subprocess.Popen([sys.executable, bot_path])
+            print("  ✅ Link Health Bot started")
+        else:
+            print("  ⚠️  Link Health Bot not found, skipping")
     except Exception as e:
-        print(f"Ingestion failed: {e}")
-    
-    # 2. Sync Trailers (Dynamic Video Preview Sync)
-    print("Step 2: Recasting official trailers...")
-    subprocess.run(['python', 'backend/trailer_sync.py'])
-    
-    print("--- 🌕 Maintenance Cycle Complete ---\n")
-    schedule_next_maintenance()
+        print(f"  ❌ Link Health Bot failed to start: {e}")
 
-def schedule_next_maintenance():
-    """
-    Precise scheduling for hourly execution to ensure new anime are always fetched.
-    """
-    now_ist = datetime.now(IST)
-    # Target next hour exactly
-    next_run = now_ist.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
-    
-    delay = (next_run - now_ist).total_seconds()
-    print(f"Next rapid-sync window opens at: {next_run} IST (Time until: {delay/60:.2f} mins)")
-    
-    # Start timer for next run
-    threading.Timer(delay, run_maintenance_cycle).start()
-
-def start_services():
-    """
-    Starts background monitor services.
-    """
-    print("Starting Background Link Health Bot...")
-    # Health bit runs continuously in the background
-    subprocess.Popen(['python', 'backend/link_status_bot.py'])
 
 def main():
-    print("==============================================")
-    print("       ANICloud Production Orchestrator       ")
-    print("==============================================")
-    print(f"Timezone: {IST}")
-    print("Manager: Autonomous Daily Content Ingestion")
-    
-    # Start autonomous bots
-    start_services()
-    
-    # Perform initial boot sync
-    print("Running initial boot sequence...")
-    run_maintenance_cycle()
+    print("=" * 60)
+    print("  ANICloud Production Orchestrator v2.0")
+    print("  Mode: 24-Hour Autonomous Content Pipeline")
+    print(f"  Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print("=" * 60)
+
+    # Start background services
+    run_link_health_bot()
+
+    # Main sync loop (runs immediately, then every 24h)
+    while True:
+        run_full_sync()
+
+        next_run = datetime.now() + timedelta(hours=CYCLE_INTERVAL_HOURS)
+        print(f"\n  💤 Next sync: {next_run.strftime('%Y-%m-%d %H:%M:%S')} ({CYCLE_INTERVAL_HOURS}h)")
+        print("  " + "-" * 56)
+        time.sleep(CYCLE_INTERVAL_HOURS * 3600)
+
 
 if __name__ == "__main__":
     main()

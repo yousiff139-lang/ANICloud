@@ -39,6 +39,39 @@ const removeDuplicates = (animes: Anime[]): Anime[] => {
   });
 };
 
+// ─── Catalog API (Primary data source for homepage) ────────────────────────
+// Fetches from our local cache populated by daily_sync.py
+
+export interface CatalogData {
+  trending: Anime[];
+  new_releases: Anime[];
+  anime_series: Anime[];
+  popular_all_time: Anime[];
+  anime_movies: Anime[];
+  last_updated: string | null;
+  source: string;
+}
+
+export const getCatalog = async (): Promise<CatalogData> => {
+  try {
+    const response = await axios.get('/api/catalog', { timeout: 10000 });
+    return response.data;
+  } catch (error) {
+    console.warn('[API] Catalog cache unavailable, will fall back to Jikan');
+    return {
+      trending: [],
+      new_releases: [],
+      anime_series: [],
+      popular_all_time: [],
+      anime_movies: [],
+      last_updated: null,
+      source: 'fallback'
+    };
+  }
+};
+
+// ─── Jikan Direct Calls (fallbacks when cache is empty) ────────────────────
+
 export const getTrendingAnime = async (page: number = 1): Promise<Anime[]> => {
   try {
     const response = await api.get(`${JIKAN_BASE_URL}/top/anime?filter=airing&limit=24&page=${page}`);
@@ -182,14 +215,62 @@ export const getAnimeById = async (id: number): Promise<Anime | null> => {
   }
 };
 
-export const getEpisodes = async (id: number) => {
+// ─── Episode Fetching (uses local API with full pagination) ────────────────
+// Calls our server-side episodes endpoint which serves from cache or
+// fetches ALL pages from Jikan (critical for 500+ episode anime)
+
+export const getEpisodes = async (id: number, title?: string, titleEn?: string, year?: number) => {
   try {
-    const response = await api.get(`${JIKAN_BASE_URL}/anime/${id}/episodes`);
-    return response.data.data;
+    // Build query params for provider cross-referencing
+    const params = new URLSearchParams();
+    if (title) params.append('title', title);
+    if (titleEn) params.append('titleEn', titleEn);
+    if (year) params.append('year', year.toString());
+
+    const queryStr = params.toString();
+    const url = `/api/anime/${id}/episodes${queryStr ? '?' + queryStr : ''}`;
+
+    const response = await axios.get(url, { timeout: 15000 });
+    return response.data || [];
   } catch (error) {
-    return [];
+    console.warn(`[API] Local episodes API failed for ${id}, falling back to Jikan paginated fetch`);
+    
+    // Direct Jikan fallback WITH full pagination
+    return await fetchAllJikanEpisodes(id);
   }
 };
+
+// Paginate through ALL Jikan episode pages (25 per page)
+// Critical for One Piece (1000+), Naruto (500+), etc.
+async function fetchAllJikanEpisodes(id: number): Promise<any[]> {
+  const allEpisodes: any[] = [];
+  let page = 1;
+  const maxPages = 50; // Safety limit (50 * 25 = 1250 episodes max)
+
+  try {
+    while (page <= maxPages) {
+      const response = await api.get(`${JIKAN_BASE_URL}/anime/${id}/episodes?page=${page}`);
+      const data = response.data;
+
+      if (!data || !data.data || data.data.length === 0) break;
+
+      allEpisodes.push(...data.data);
+
+      // Check if there are more pages
+      const pagination = data.pagination || {};
+      if (!pagination.has_next_page) break;
+
+      page++;
+
+      // Respect Jikan rate limits (3 req/sec)
+      await new Promise(resolve => setTimeout(resolve, 400));
+    }
+  } catch (error) {
+    console.error(`[API] Jikan paginated fetch failed at page ${page}:`, error);
+  }
+
+  return allEpisodes;
+}
 
 export interface StreamData {
   master: string;

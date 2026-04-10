@@ -1,0 +1,12 @@
+[
+  {
+    "timestamp": "2026-04-10T00:09:20.300878",
+    "duration_minutes": 22.9,
+    "categories_synced": 5,
+    "episodes_fetched": 523,
+    "episodes_skipped": 0,
+    "episodes_errors": 0,
+    "trailers_synced": 0,
+    "status": "success"
+  }
+]

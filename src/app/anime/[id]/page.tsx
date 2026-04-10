@@ -25,18 +25,32 @@ export default function AnimeDetail() {
     const fetchDetails = async () => {
       if (!id) return;
       setLoading(true);
-      const [animeData, epData] = await Promise.all([
-        getAnimeById(Number(id)),
-        getEpisodes(Number(id))
-      ]);
+
+      // 1. Fetch anime details first
+      const animeData = await getAnimeById(Number(id));
       setAnime(animeData);
 
-      // Fetch stream for episode 1 just to passively grab the FULL, unpaginated complete episode array from AnimePahe
-      const stream = await getStreamUrl(Number(id), 1, animeData?.title, animeData?.title_english, animeData?.year);
-      if (stream && stream.episodes && stream.episodes.length > 0) {
-        setEpisodes(stream.episodes);
-      } else {
+      // 2. Fetch episodes using our local API (with full pagination for large series)
+      //    Pass title/year so the API can cross-reference with streaming providers
+      const epData = await getEpisodes(
+        Number(id),
+        animeData?.title,
+        animeData?.title_english,
+        animeData?.year
+      );
+
+      if (epData && epData.length > 0) {
         setEpisodes(epData);
+      } else {
+        // Fallback: Try stream route which also returns episodes from providers
+        try {
+          const stream = await getStreamUrl(Number(id), 1, animeData?.title, animeData?.title_english, animeData?.year);
+          if (stream && stream.episodes && stream.episodes.length > 0) {
+            setEpisodes(stream.episodes);
+          }
+        } catch (e) {
+          console.warn('[AnimeDetail] Stream fallback for episodes also failed');
+        }
       }
 
       setLoading(false);
@@ -70,7 +84,7 @@ export default function AnimeDetail() {
 
   if (!anime) return <div>Anime not found</div>;
 
-  // Pagination for long-running series
+  // Pagination for long-running series (100 episodes per chunk)
   const chunkSize = 100;
   const chunkCount = Math.ceil(episodes.length / chunkSize);
   const currentChunk = episodes.slice(epChunkPage * chunkSize, (epChunkPage + 1) * chunkSize);

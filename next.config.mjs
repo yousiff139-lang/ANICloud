@@ -10,9 +10,8 @@ const nextConfig = {
     // !! WARN !!
     ignoreBuildErrors: true,
   },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
+  // Enable instrumentation hook for auto-sync on server start
+  instrumentationHook: true,
 };
 
 export default nextConfig;
