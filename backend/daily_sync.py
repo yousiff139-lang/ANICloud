@@ -235,14 +235,12 @@ def sync_episodes(database):
 
         if result and "data" in result:
             episodes = result["data"]
-            # Also fetch page 2+ if pagination indicates more
-            pagination = result.get("pagination", {})
+            # Also fetch page 2+ by checking if data is not empty (ignoring broken has_next_page)
             page = 2
-            while pagination.get("has_next_page", False) and page <= 10:
+            while page <= 50:
                 next_result = rate_limited_get(url, {"page": page})
-                if next_result and "data" in next_result:
+                if next_result and "data" in next_result and len(next_result["data"]) > 0:
                     episodes.extend(next_result["data"])
-                    pagination = next_result.get("pagination", {})
                     page += 1
                 else:
                     break

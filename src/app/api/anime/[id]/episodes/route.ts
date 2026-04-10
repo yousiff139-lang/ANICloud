@@ -84,8 +84,8 @@ async function fetchAllJikanEpisodes(id: string): Promise<any[]> {
 
       allEpisodes.push(...data.data);
 
-      const pagination = data.pagination || {};
-      if (!pagination.has_next_page) break;
+      // Jikan's has_next_page flag is broken (often falsely says false),
+      // so we rely solely on whether data.data.length === 0 to break the loop.
 
       page++;
 
